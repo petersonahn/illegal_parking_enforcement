@@ -1,0 +1,11 @@
+[out:json][timeout:25];
+
+// Relation ID로 area 설정
+relation(8125011);
+map_to_area->.searchArea;
+
+// 차량 통행 가능한 도로만 추출
+(
+  way["highway"~"motorway|trunk|primary|secondary|tertiary|residential|unclassified|service"](area.searchArea);
+);
+out geom;
