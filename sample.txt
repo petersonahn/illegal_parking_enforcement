@@ -1,0 +1,1 @@
+python manage.py import_parking Ilsan-dong-gu_parking_lot.csv
