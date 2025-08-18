@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>불법 주정차 구역 안내 서비스</title>
+  <style>
+    html, body {
+      height: 100%;
+      margin: 0; padding: 0;
+      font-family: Arial, sans-serif;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    /* 상단 배너 스타일 */
+    #header {
+      height: 60px;
+      background: #004c99;
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 20px;
+      box-sizing: border-box;
+      flex-shrink: 0;
+    }
+    #header h1 { margin: 0; font-size: 20px; }
+    #header button {
+      background: #007bff;
+      border: none;
+      color: white;
+      padding: 6px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    #header button:hover { background: #0056b3; }
+
+    /* 좌우 콘텐츠 레이아웃 */
+    #container {
+      flex: 1;
+      display: flex;
+      height: calc(100% - 60px);
+    }
+    /* 좌측 리스트 영역 */
+    #parkingList {
+      width: 300px;
+      border-right: 1px solid #ddd;
+      box-sizing: border-box;
+      padding: 15px;
+      overflow-y: auto;
+      background: #f9f9f9;
+    }
+    #parkingList h2 { margin-top: 0; font-size: 18px; margin-bottom: 6px; color: #333; }
+    #sortSelect {
+      margin-bottom: 12px;
+      width: 100%;
+      padding: 5px;
+      font-size: 14px;
+    }
+    #parkingUl { list-style: none; padding-left: 0; margin: 0; }
+    #parkingUl li {
+      padding: 8px 10px;
+      border-radius: 4px;
+      margin-bottom: 6px;
+      background: white;
+      border: 1px solid #ccc;
+      transition: background-color 0.2s;
+    }
+    #parkingUl li:hover { background-color: #e6f0ff; border-color: #007bff; }
+
+    /* 우측 지도 영역 */
+    #mapContainer {
+      flex: 1;
+      position: relative;
+      background: #eee;
+      display: flex;
+      flex-direction: column;
+    }
+    #map { flex: 1; position: relative; }
+
+    button#placeCarBtn,
+    button#clearBtn {
+      position: absolute;
+      top: 10px;
+      z-index: 100;
+      padding: 6px 12px;
+      font-size: 14px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      background-color: #007bff;
+      color: white;
+      user-select: none;
+      transition: background-color 0.2s;
+    }
+    button#placeCarBtn:hover,
+    button#clearBtn:hover { background-color: #0056b3; }
+    button#placeCarBtn { left: 10px; }
+    button#clearBtn { left: 120px; }
+
+    /* 로딩 오버레이 */
+    #loadingOverlay {
+      position: absolute; top: 0; left: 0;
+      width: 100%; height: 100%;
+      background-color: rgba(255, 255, 255, 0.7);
+      z-index: 50;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px; font-weight: bold; color: #444;
+      user-select: none;
+    }
+
+    /* 모달 스타일 */
+    .modal {
+      display: none;
+      position: fixed; z-index: 200;
+      left: 0; top: 0;
+      width: 100%; height: 100%;
+      background-color: rgba(0,0,0,0.4);
+    }
+    .modal-content {
+      background-color: #fff;
+      margin: 10% auto;
+      padding: 20px;
+      border: 1px solid #888;
+      width: 400px;
+      border-radius: 5px;
+      position: relative;
+    }
+    .close {
+      position: absolute;
+      top: 10px; right: 15px;
+      color: #aaa;
+      font-size: 24px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    .customoverlay-box {
+      background: white;
+      border: 1px solid #333;
+      border-radius: 5px;
+      padding: 8px 10px;
+      font-size: 13px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+      white-space: nowrap;
+    }
+
+    .customoverlay-content strong {
+      display: block;
+      margin-bottom: 4px;
+      font-weight: bold;
+      color: #2a2a2a;
+    }
+
+  </style>
+
+  <!-- 라이브러리 로딩 -->
+  <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=f4c124856678656d1b266147d1cb459e&autoload=false"></script>
+  <script src="https://unpkg.com/@turf/turf/turf.min.js"></script>
+</head>
+<body>
+  <!-- 상단 Header -->
+  <div id="header">
+    <h1>불법 주정차 구역 안내 서비스</h1>
+    <div>
+      <button>로그인</button>
+      <button>회원가입</button>
+    </div>
+  </div>
+
+  <!-- 좌우 콘텐츠 영역 -->
+  <div id="container">
+    <div id="parkingList">
+      <h2>주차장 리스트</h2>
+      <select id="sortSelect" onchange="handleSortChange()">
+        <option value="name">이름순</option>
+        <option value="distance">거리순</option>
+      </select>
+      <ul id="parkingUl"></ul>
+    </div>
+    <div id="mapContainer">
+      <div id="map">
+        <div id="loadingOverlay">🛣 도로 데이터를 불러오는 중입니다...</div>
+      </div>
+      <button id="placeCarBtn" onclick="placeRandomOnRoad()">차량 주·정차</button>
+      <button id="clearBtn" onclick="clearMarkers()">주·정차 취소</button>
+    </div>
+  </div>
+
+  <!-- 주차장 상세 모달 -->
+  <div id="parkingModal" class="modal">
+    <div class="modal-content">
+      <span class="close" onclick="closeParkingModal()">&times;</span>
+      <div id="parkingModalBody"></div>
+    </div>
+  </div>
+
+  <script>
+    let map, carMarker = null, infoWindow = null;
+    const parkingMarkers = [], roadLines = [];
+    let parkingLots = [], trafficCameras = [], realtimeParkingLots = [];
+    let currentCarLocation = null, currentVisibleLots = [];
+
+    async function loadParkingData() {
+      try {
+        const res = await fetch('/api/parking-lots/');
+        parkingLots = await res.json();
+      } catch {
+        parkingLots = [];
+      }
+    }
+
+    async function loadCameraData() {
+      try {
+        const res = await fetch('/api/traffic-cameras/');
+        trafficCameras = await res.json();
+      } catch {
+        trafficCameras = [];
+      }
+    }
+
+    async function loadRealtimeParkingData() {
+      try {
+        const res = await fetch('/api/realtime_parking/');
+        const data = await res.json();
+        realtimeParkingLots = data;
+      } catch (e) {
+        realtimeParkingLots = [];
+      }
+    }
+
+    window.onload = async () => {
+      await loadParkingData();
+      await loadCameraData();
+      await loadRealtimeParkingData();
+      loadMap();
+    };
+
+    function loadMap() {
+      kakao.maps.load(async () => {
+        map = new kakao.maps.Map(document.getElementById('map'), {
+          center: new kakao.maps.LatLng(37.659434, 126.773379),
+          level: 3
+        });
+        await loadRoadData();
+        renderParkingList();
+        document.getElementById('loadingOverlay').style.display = 'none';
+      });
+    }
+
+    async function loadRoadData() {
+      const url = `https://overpass-api.de/api/interpreter?data=[out:json][timeout:25];
+        relation(8125011);
+        map_to_area->.searchArea;
+        (way["highway"~"motorway|trunk|primary|secondary|tertiary|residential|unclassified|service"](area.searchArea););
+        out geom;`;
+      try {
+        const res = await fetch(url);
+        const data = await res.json();
+        data.elements.forEach(el => {
+          if (el.type === 'way' && el.geometry) {
+            const coords = el.geometry.map(p => [p.lon, p.lat]);
+            roadLines.push(turf.lineString(coords));
+          }
+        });
+      } catch {}
+    }
+
+    function renderParkingList(filteredLots = null) {
+      const ul = document.getElementById('parkingUl');
+      ul.innerHTML = '';
+      const listToShow = filteredLots ?? parkingLots;
+      currentVisibleLots = listToShow;
+      handleSortChange();
+    }
+
+    function handleSortChange() {
+      const sortType = document.getElementById('sortSelect').value;
+      let sorted = [...currentVisibleLots];
+      if (sortType === 'name') {
+        sorted.sort((a, b) => a.name.localeCompare(b.name));
+      } else if (sortType === 'distance' && currentCarLocation) {
+        const carPt = turf.point([currentCarLocation[1], currentCarLocation[0]]);
+        sorted.sort((a, b) => {
+          const da = turf.distance(carPt, turf.point([a.longitude, a.latitude]), { units: 'kilometers' });
+          const db = turf.distance(carPt, turf.point([b.longitude, b.latitude]), { units: 'kilometers' });
+          return da - db;
+        });
+      }
+      const ul = document.getElementById('parkingUl');
+      ul.innerHTML = '';
+      if (!sorted.length) {
+        const li = document.createElement('li');
+        li.textContent = '주변에 주차장이 존재하지 않습니다.';
+        li.style.color = '#888';
+        li.style.fontStyle = 'italic';
+        ul.appendChild(li);
+        return;
+      }
+      sorted.forEach(lot => {
+        const li = document.createElement('li');
+
+        const a = document.createElement('a');
+        let distanceText = '';
+
+        if (sortType === 'distance' && currentCarLocation) {
+          const carPt = turf.point([currentCarLocation[1], currentCarLocation[0]]);
+          const lotPt = turf.point([lot.longitude, lot.latitude]);
+          const distanceKm = turf.distance(carPt, lotPt, { units: 'kilometers' });
+          const distanceM = Math.round(distanceKm * 1000);
+          if (distanceM >= 1000) {
+            distanceText = ` (${Math.round(distanceKm * 10)/10}km)`;
+          }else {
+            distanceText = ` (${distanceM}m)`;
+          }
+        }
+
+        a.innerHTML = lot.name + distanceText + "<br><br>" + lot.category + "주자장" + " (" + lot.fee_type + ")";
+        a.href = '#';
+        a.style.color = '#007bff';
+        a.style.textDecoration = 'none';
+        a.style.display = 'block';
+        a.style.width = '100%';
+
+        a.addEventListener('click', e => {
+          e.preventDefault();
+          openParkingModal(lot);
+        });
+
+        li.appendChild(a);
+        ul.appendChild(li);
+      });
+
+    }
+
+    function openParkingModal(lot) {
+      const modal = document.getElementById('parkingModal');
+      const body = document.getElementById('parkingModalBody');
+
+      let availableCount = '정보 없음';
+
+      if (Array.isArray(realtimeParkingLots)) {
+        const matched = realtimeParkingLots.find(real => real.pkplcId === lot.pkplcId);
+
+        if (matched) {
+          availableCount = matched.avblPklotCnt;
+        }
+      }
+
+      body.innerHTML = `
+        <h2>${lot.name}</h2>
+        <p><strong>주소 :</strong> ${lot.road_address || lot.jibun_address || '정보 없음'}</p>
+        <p><strong>전화번호 :</strong> ${lot.phone_number || '정보 없음'}</p>
+        <p><strong>총 주차 구획수 :</strong> ${lot.capacity}</p>
+        <p><strong>현재 이용 가능 주차구획수 :</strong> ${availableCount}</p>
+        <p><strong>요금 : </strong>${lot.fee_type}</p>
+        <div style="margin-top:15px; text-align:right;">
+          <button onclick="goDetail(${JSON.stringify(lot.number)})"
+                  style="padding:6px 12px; background:#007bff; color:#fff;
+                         border:none; border-radius:4px; cursor:pointer;">
+            상세정보 보기
+          </button>
+        </div>
+      `;
+
+      modal.style.display = 'block';
+    }
+
+    function goDetail(number) {
+      if (number == null) {
+        alert('상세 페이지로 이동할 수 없습니다. (number 없음)');
+        return;
+      }
+      window.location.href = `/parking/${number}/`;
+    }
+
+    function closeParkingModal() {
+      document.getElementById('parkingModal').style.display = 'none';
+    }
+
+    function placeRandomOnRoad() {
+      if (!roadLines.length) { alert('도로 데이터가 아직 준비되지 않았습니다.'); return; }
+      if (carMarker) { carMarker.setMap(null); carMarker = null; }
+      if (infoWindow) { infoWindow.setMap(null); infoWindow = null; }
+      parkingMarkers.forEach(m => m.setMap(null)); parkingMarkers.length = 0;
+
+      const line = roadLines[Math.floor(Math.random() * roadLines.length)];
+      const dist = Math.random() * turf.length(line, { units: 'kilometers' });
+      const pt = turf.along(line, dist, { units: 'kilometers' });
+      const [lon, lat] = pt.geometry.coordinates;
+      carMarker = new kakao.maps.Marker({ map, position: new kakao.maps.LatLng(lat, lon) });
+      map.setCenter(new kakao.maps.LatLng(lat, lon));
+      currentCarLocation = [lat, lon];
+
+      const illegal = isIllegalParkingArea(lat, lon);
+      const msg = illegal ? "🚫 불법 주정차 구역입니다." : "✅ 불법 주정차 구역이 아닙니다.";
+      infoWindow = new kakao.maps.CustomOverlay({
+        content: `<div style="padding:12px;font-size:16px;font-weight:bold;min-width:220px;text-align:center;
+                  background:#fff; border:2px solid ${illegal?'#dc3545':'#28a745'};
+                  border-radius:8px;box-shadow:0 2px 6px rgba(0,0,0,0.2);
+                  color:${illegal?'#dc3545':'#28a745'}">${msg}</div>`,
+        position: new kakao.maps.LatLng(lat, lon),
+        yAnchor: 1.8, zIndex: 99
+      });
+      infoWindow.setMap(map);
+
+      if (illegal) {
+        showNearbyParkingLots(lat, lon);
+        const center = turf.point([lon, lat]);
+        const nearby = parkingLots.filter(lot =>
+          turf.distance(center, turf.point([lot.longitude, lot.latitude]), { units: 'kilometers' }) <= 1
+        );
+        renderParkingList(nearby);
+      } else {
+        renderParkingList();
+      }
+    }
+
+    function isIllegalParkingArea(lat, lon) {
+      const pt = turf.point([lon, lat]);
+      const nearCam = trafficCameras.some(c =>
+        turf.distance(pt, turf.point([c.longitude, c.latitude]), { units: 'kilometers' }) <= 0.1
+      );
+      const nearLot = parkingLots.some(l =>
+        turf.distance(pt, turf.point([l.longitude, l.latitude]), { units: 'kilometers' }) <= 0.05
+      );
+      return !(nearCam && nearLot) && nearCam;
+    }
+
+    function showNearbyParkingLots(lat, lon) {
+      parkingMarkers.forEach(m => m.setMap(null));
+      parkingMarkers.length = 0;
+      const center = turf.point([lon, lat]);
+
+      parkingLots.forEach(lot => {
+        if (turf.distance(center, turf.point([lot.longitude, lot.latitude]), { units: 'kilometers' }) <= 1) {
+      
+          const defaultSize = new kakao.maps.Size(24, 35);
+          const enlargedSize = new kakao.maps.Size(32, 46); // 확대 크기
+
+          const defaultImage = new kakao.maps.MarkerImage(
+            'https://t1.daumcdn.net/localimg/localimages/07/mapapidoc/markerStar.png',
+            defaultSize,
+            { offset: new kakao.maps.Point(12, 35) }
+          );
+
+          const enlargedImage = new kakao.maps.MarkerImage(
+            'https://t1.daumcdn.net/localimg/localimages/07/mapapidoc/markerStar.png',
+            enlargedSize,
+            { offset: new kakao.maps.Point(16, 46) }
+          );
+
+          const mk = new kakao.maps.Marker({
+            map,
+            position: new kakao.maps.LatLng(lot.latitude, lot.longitude),
+            image: defaultImage
+          });
+
+          let availableCount = '기능 미지원';
+
+          if (Array.isArray(realtimeParkingLots)) {
+            const matched = realtimeParkingLots.find(real => real.pkplcId === lot.pkplcId);
+            if (matched) {
+              availableCount = matched.avblPklotCnt;
+              console.log(availableCount);
+            }
+          }
+
+          const content = `
+            <div class="customoverlay-box">
+              <div class="customoverlay-content">
+                <strong>${lot.name}</strong><br>
+                <span>주차구획수 : ${lot.capacity}</span><br>
+                <span>남은주차공간 : ${availableCount}</span>
+              </div>
+            </div>
+          `;
+
+          const overlay = new kakao.maps.CustomOverlay({
+            content: content,
+            position: mk.getPosition(),
+            yAnchor: 1.5,
+            zIndex: 100
+          });
+
+          // 마우스 오버시: 마커 크기 확대 + 오버레이 표시
+          kakao.maps.event.addListener(mk, 'mouseover', () => {
+            mk.setImage(enlargedImage);
+            overlay.setMap(map);
+          });
+
+          // 마우스 아웃시: 마커 원래 크기 + 오버레이 닫기
+          kakao.maps.event.addListener(mk, 'mouseout', () => {
+            mk.setImage(defaultImage);
+            overlay.setMap(null);
+          });
+
+          parkingMarkers.push(mk);
+        }
+      });
+
+    }
+
+    function clearMarkers() {
+      if (carMarker) { carMarker.setMap(null); carMarker = null; }
+      parkingMarkers.forEach(m => m.setMap(null)); parkingMarkers.length = 0;
+      renderParkingList();
+      if (infoWindow) { infoWindow.setMap(null); infoWindow = null; }
+    }
+  </script>
+</body>
+</html>
