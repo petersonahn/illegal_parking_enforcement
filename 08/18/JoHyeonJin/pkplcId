@@ -1,0 +1,69 @@
+-- 기존 migration 전부 삭제 후 작업 추천 --
+-- 1) 좌측에서 migrations 폴더에 __init__.py를 ★제외하고★ 나머지 파일 모두 삭제.
+-- 2) db.sqlite3 삭제.
+-- 3) 터미널 창에서 python manage.py import_parking Ilsan-dong-gu_parking_lot.csv
+-- 4) 터미널 창에서 python manage.py import_traffic_cameras Ilsan-dong-gu_cctv.csv
+-- 5) 이후 작업 동일하게 진행. (makemigrations, migrate, createsuperuser)
+
+##### urls.py #####
+## 추가 ##
+path('api/realtime_parking/', views.realtime_parking_data, name='realtime_parking'),
+
+
+##### import_parking.py #####
+## 추가 ##
+pkplcId=row['주차장아이디'] or None,
+
+
+##### views.py #####
+## import 추가 ##
+import requests
+import xml.etree.ElementTree as ET
+
+## 수정 ##
+def parking_lot_list(request):
+    data = list(ParkingLot.objects.values(
+        'number', 'pkplcId', 'category', 'fee_type', 'capacity',
+        'road_address', 'jibun_address', 'phone_number',
+        'name', 'latitude', 'longitude'
+    ))
+    return JsonResponse(data, safe=False)
+
+## 추가 ##
+def realtime_parking_data(request):
+    service_key = "e7e6289f86fbda761d8456a8513b6f635783aa11"
+    lae_id = "31100"
+    url = "https://openapigits.gg.go.kr/api/rest/getParkingPlaceAvailabilityInfoList"
+
+    params = {
+        "serviceKey": service_key,
+        "laeId": lae_id
+    }
+
+    try:
+        response = requests.get(url, params=params)
+        response.raise_for_status()
+
+        root = ET.fromstring(response.content)
+        items = root.findall(".//itemList")
+
+        result = []
+        for item in items:
+            result.append({
+                "pkplcId": item.findtext("pkplcId"),
+                "avblPklotCnt": int(item.findtext("avblPklotCnt")),
+            })
+
+        return JsonResponse(result, safe=False)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+##### models.py #####
+## 수정 ##
+-- 기존 ParkingLot 클래스 number 아래 추가 --
+pkplcId = models.CharField(max_length=20, null=True, blank=True) # 주차장아이디
+
+
+##### 터미널 창에서 #####
+pip install requests
