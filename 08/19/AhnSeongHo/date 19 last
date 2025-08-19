@@ -1,0 +1,14 @@
+# views.py add
+
+def district_list(request):
+    districts = (IllegalParkingRecord.objects
+                   .exclude(district__isnull=True)
+                   .exclude(district='')
+                   .values_list('district', flat=True)
+                   .distinct()
+                   .order_by('district'))
+    return JsonResponse(list(districts), safe=False)
+
+# urls.py add
+      
+path('api/illegal_parking/districts/', views.district_list, name='illegal-parking-districts'),
