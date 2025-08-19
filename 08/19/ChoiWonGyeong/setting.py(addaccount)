@@ -1,0 +1,4 @@
+config/setting.py 에 
+
+
+AUTH_USER_MODEL = 'accounts.CustomUser'  -- 추가 
