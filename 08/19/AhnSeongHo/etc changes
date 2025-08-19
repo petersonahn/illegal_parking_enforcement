@@ -1,0 +1,43 @@
+# admin.py  add
+
+@admin.register(IllegalParkingRecord)
+class IllegalParkingRecordAdmin(admin.ModelAdmin):
+    def get_list_display(self, request):
+        return [field.name for field in self.model._meta.fields]
+
+# testapp\urls.py changes
+
+from django.urls import path
+from . import views
+
+urlpatterns = [
+    path('', views.main, name='main'),
+    path('api/parking-lots/', views.parking_lot_list, name='parking-lot-list'),
+    path('api/traffic-cameras/', views.traffic_camera_list, name='traffic_camera_list'),
+    path('api/realtime_parking/', views.realtime_parking_data, name='realtime_parking'),
+    path('parking/<int:number>/', views.parking_detail, name='parkinglot-detail'),
+    path('api/illegal_parking/', views.illegal_parking_record, name='illegal-parking'),
+    path('api/illegal_parking/stats/', views.illegal_parking_stats, name='illegal-parking-stats'),
+    path('illegal_parking_stats/', views.illegal_parking_stats_page, name='illegal-parking-stats-page'),
+]
+
+# models.py add
+
+class TrafficCamera(models.Model):
+    camera_id = models.CharField(max_length=20, unique=True)  # 관리번호
+    address = models.CharField(max_length=255)                # 주소
+    latitude = models.FloatField()                            # 위도
+    longitude = models.FloatField()                           # 경도
+
+    def __str__(self):
+        return f"{self.camera_id} - {self.address}"
+
+class IllegalParkingRecord(models.Model):
+    timestamp = models.DateTimeField(auto_now_add=True)  # 기록 시간
+    district = models.CharField(max_length=50, null=True, blank=True)  # 행정동 이름
+
+    class Meta:
+        ordering = ['-timestamp']  # 최신 기록부터 정렬
+
+    def __str__(self):
+        return f"{self.district} - {self.timestamp.strftime('%Y-%m-%d %H:%M:%S')}"
