@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>불법 주정차 통계</title>
+  <style>
+    table { border-collapse: collapse; width: 80%; margin: 20px auto; }
+    th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
+    th { background-color: #f0f0f0; }
+    #chartContainer {
+      width: 60%;
+      height: 400px;
+      margin: 30px auto;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    #statsChart {
+      max-width: 100%;
+      max-height: 100%;
+    }
+  </style>
+</head>
+<body>
+  <h2 style="text-align:center;">불법 주정차 통계</h2>
+
+  <label style="margin-left:10%;">기간:
+    <select id="periodSelect">
+      <option value="all">전체</option>
+      <option value="week">최근 1주</option>
+      <option value="month">최근 1개월</option>
+      <option value="year">최근 1년</option>
+    </select>
+  </label>
+
+  <label style="margin-left:20px;">행정동:
+    <select id="districtSelect"></select>
+  </label>
+
+  <table id="statsTable">
+    <thead>
+      <tr>
+        <th>행정동</th>
+        <th>불법 주정차 건수</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <!-- 차트 영역 -->
+  <div id="chartContainer">
+    <canvas id="statsChart"></canvas>
+  </div>
+
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+
+  <script>
+    let chart;  // 전역 변수
+
+    async function loadDistricts() {
+      const res = await fetch('/api/illegal_parking/districts/');
+      const districts = await res.json();
+
+      const select = document.getElementById('districtSelect');
+      select.innerHTML = '<option value="all">전체</option>';
+
+      districts.forEach(d => {
+        const opt = document.createElement('option');
+        opt.value = d;
+        opt.textContent = d;
+        select.appendChild(opt);
+      });
+    }
+
+    async function loadStats() {
+      const period = document.getElementById('periodSelect').value;
+      const district = document.getElementById('districtSelect').value;
+
+      const url = new URL('/api/illegal_parking/stats/', window.location.origin);
+      url.searchParams.append('period', period);
+      if (district !== 'all') url.searchParams.append('district', district);
+
+      const res = await fetch(url);
+      const data = await res.json();
+
+      // --- 표 갱신 ---
+      const tbody = document.querySelector('#statsTable tbody');
+      tbody.innerHTML = '';
+
+      if (!data.length) {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td colspan="2">데이터 없음</td>`;
+        tbody.appendChild(tr);
+        if (chart) chart.destroy();
+        return;
+      }
+
+      data.forEach(row => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${row.district || '알 수 없음'}</td><td>${row.count}</td>`;
+        tbody.appendChild(tr);
+      });
+
+      // --- 파이차트 갱신 ---
+      const labels = data.map(r => r.district || '알 수 없음');
+      const counts = data.map(r => r.count);
+
+      const ctx = document.getElementById('statsChart').getContext('2d');
+      if (chart) chart.destroy();
+
+      chart = new Chart(ctx, {
+        type: 'pie',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: '불법 주정차 건수',
+            data: counts,
+            backgroundColor: [
+              'rgba(255, 99, 132, 0.6)',
+              'rgba(54, 162, 235, 0.6)',
+              'rgba(255, 206, 86, 0.6)',
+              'rgba(75, 192, 192, 0.6)',
+              'rgba(153, 102, 255, 0.6)',
+              'rgba(255, 159, 64, 0.6)'
+            ],
+            borderColor: '#fff',
+            borderWidth: 2
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { position: 'bottom' },
+            datalabels: {
+              color: '#fff',
+              font: { weight: 'bold', size: 14 },
+              formatter: (value, context) => {
+                const label = context.chart.data.labels[context.dataIndex];
+                const total = context.chart.data.datasets[0].data.reduce((a,b)=>a+b,0);
+                const percent = ((value/total)*100).toFixed(1) + '%';
+                return `${label}\n${percent}`;
+              }
+            }
+          }
+        },
+        plugins: [ChartDataLabels]
+      });
+    }
+
+    document.getElementById('periodSelect').addEventListener('change', loadStats);
+    document.getElementById('districtSelect').addEventListener('change', loadStats);
+
+    window.onload = async () => {
+      await loadDistricts();
+      await loadStats();
+    };
+  </script>
+</body>
+</html>
