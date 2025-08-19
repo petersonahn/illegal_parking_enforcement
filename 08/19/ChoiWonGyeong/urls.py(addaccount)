@@ -1,0 +1,14 @@
+from django.urls import path, include
+from . import views
+
+
+
+
+urlpatterns = [
+    path('', views.main, name='main'),
+    path('api/parking-lots/', views.parking_lot_list, name='parking-lot-list'),
+    path('api/traffic-cameras/', views.traffic_camera_list, name='traffic_camera_list'),
+    path('parking/<int:number>/', views.parking_detail, name='parkinglot-detail'),
+    path('accounts/', include('accounts.urls')),
+
+]
