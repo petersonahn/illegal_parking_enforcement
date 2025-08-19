@@ -3,3 +3,6 @@
 python manage.py import_parking Go-yang-si_parking_lot.csv
 
 python manage.py import_traffic_cameras Go-yang-si_cctv.csv
+
+
+원래 있던 일산동구 csv파일은 전부 삭제해도 됩니다.
