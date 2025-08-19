@@ -1,0 +1,5 @@
+## 기존 migration 파일 삭제 후 makemigration, migrate... 모두 진행 후 터미널 창에서 실행
+
+python manage.py import_parking Go-yang-si_parking_lot.csv
+
+python manage.py import_traffic_cameras Go-yang-si_cctv.csv
