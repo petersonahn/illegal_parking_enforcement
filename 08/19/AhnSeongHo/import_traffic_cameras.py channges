@@ -1,0 +1,28 @@
+import csv
+import uuid
+from django.core.management.base import BaseCommand
+from testapp.models import TrafficCamera
+
+class Command(BaseCommand):
+    help = 'CSV 파일에서 TrafficCamera 데이터를 DB에 import합니다.'
+
+    def add_arguments(self, parser):
+        parser.add_argument('csv_file', type=str, help='CSV 파일 경로')
+
+    def handle(self, *args, **kwargs):
+        file_path = kwargs['csv_file']
+
+        with open(file_path, newline='', encoding='utf-8-sig') as csvfile:
+            reader = csv.DictReader(csvfile)
+            for row in reader:
+                camera_id = row.get("무인교통단속카메라관리번호") or str(uuid.uuid4())
+                TrafficCamera.objects.update_or_create(
+                    camera_id=camera_id,
+                    defaults={
+                        "address": row.get("소재지지번주소", ""),
+                        "latitude": float(row.get("위도", 0)),
+                        "longitude": float(row.get("경도", 0)),
+                    }
+                )
+
+        self.stdout.write(self.style.SUCCESS("✅ TrafficCamera 데이터 import 완료"))
