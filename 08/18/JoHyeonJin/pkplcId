@@ -1,9 +1,10 @@
 -- 기존 migration 전부 삭제 후 작업 추천 --
 -- 1) 좌측에서 migrations 폴더에 __init__.py를 ★제외하고★ 나머지 파일 모두 삭제.
 -- 2) db.sqlite3 삭제.
--- 3) 터미널 창에서 python manage.py import_parking Ilsan-dong-gu_parking_lot.csv
--- 4) 터미널 창에서 python manage.py import_traffic_cameras Ilsan-dong-gu_cctv.csv
--- 5) 이후 작업 동일하게 진행. (makemigrations, migrate, createsuperuser)
+-- 3) 이후 작업 동일하게 진행. (makemigrations, migrate, createsuperuser)
+-- 4) 터미널 창에서 python manage.py import_parking Ilsan-dong-gu_parking_lot.csv
+-- 5) 터미널 창에서 python manage.py import_traffic_cameras Ilsan-dong-gu_cctv.csv
+
 
 ##### urls.py #####
 ## 추가 ##
