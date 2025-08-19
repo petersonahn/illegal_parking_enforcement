@@ -1,0 +1,44 @@
+def traffic_camera_list(request):
+    data = list(TrafficCamera.objects.values('camera_id', 'latitude', 'longitude', 'address'))
+    return JsonResponse(data, safe=False)
+
+@csrf_exempt
+def illegal_parking_record(request):
+    if request.method == "POST":
+        try:
+            data = json.loads(request.body)
+            record = IllegalParkingRecord.objects.create(
+                district=data.get('district')
+            )
+            return JsonResponse({'id': record.id}, status=201)
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=400)
+    return JsonResponse({'error': 'POST 요청만 허용'}, status=405)
+
+def illegal_parking_stats(request):
+    period = request.GET.get('period', 'week')
+    district = request.GET.get('district', None)
+
+    now = timezone.now()
+    if period == 'week':
+        start = now - timezone.timedelta(days=7)
+    elif period == 'month':
+        start = now - timezone.timedelta(days=30)
+    elif period == 'year':
+        start = now - timezone.timedelta(days=365)
+    else:
+        start = None  # 전체
+
+    qs = IllegalParkingRecord.objects.all()
+    if start:
+        qs = qs.filter(timestamp__gte=start)
+    if district:
+        qs = qs.filter(district=district)
+
+    # 날짜별, 동별 집계
+    stats = qs.values('district').annotate(count=Count('id')).order_by('-count')
+
+    return JsonResponse(list(stats), safe=False)
+
+def illegal_parking_stats_page(request):
+    return render(request, 'illegal_parking_stats.html')
