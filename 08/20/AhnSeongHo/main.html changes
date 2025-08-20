@@ -1,0 +1,52 @@
+async function recordIllegalParking(lat, lon) {
+      try {
+          // 차량 위치 포인트
+          const carPt = turf.point([lon, lat]);
+
+          // 차량 근처 100m 이내 CCTV 찾기
+          const nearbyCams = trafficCameras.filter(c =>
+              turf.distance(carPt, turf.point([c.longitude, c.latitude]), { units: 'kilometers' }) <= 0.1
+          );
+
+          if (!nearbyCams.length) {
+              console.warn('근처 CCTV 없음. 기록 건너뜀.');
+              return;
+          }
+
+          const camAddress = nearbyCams[0].address;
+          if (!camAddress || typeof camAddress !== 'string') {
+              console.warn('CCTV 주소 정보 없음. 기록 건너뜀.');
+              return;
+          }
+
+          // 구·동 추출
+          const guMatch = camAddress.match(/([가-힣]+구)/);
+          const dongMatch = camAddress.match(/([가-힣]+동)(?!구)/g);
+
+          if (!guMatch || !dongMatch || dongMatch.length === 0) {
+              console.warn('구 또는 동 추출 실패. 기록 건너뜀.');
+              return;
+          }
+
+          const gu = guMatch[0];
+          const dong = dongMatch[dongMatch.length - 1];
+
+          console.log('기록할 district:', gu, dong);
+
+          // DB에 기록
+          const response = await fetch('/api/illegal_parking/', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ gu, dong })
+          });
+
+          if (response.ok) {
+              console.log('불법주차 기록됨:', gu, dong);
+          } else {
+              console.error('불법주차 기록 실패:', response.status);
+          }
+
+      } catch (e) {
+          console.error('불법주차 기록 오류:', e);
+      }
+    }
