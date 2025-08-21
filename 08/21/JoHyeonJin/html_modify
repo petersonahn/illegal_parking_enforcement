@@ -1,0 +1,13 @@
+
+const guName = d.properties.sggnm;
+const dongName = d.properties.adm_nm;
+
+#### 사이에 해당 부분 추가 ####
+
+let gu = guName.slice(3);
+let dong = dongName.slice(-3);
+
+#### / ####
+
+document.getElementById('selected-gu').textContent = guName;
+document.getElementById('selected-dong').textContent = dongName;
