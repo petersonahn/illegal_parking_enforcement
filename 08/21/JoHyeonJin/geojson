@@ -1,0 +1,155 @@
+### 사용중인 메인 앱 폴더에(ex. testapp) static/geojson 폴더 경로 차례로 추가 후 해당 geojson 폴더에 json파일 추가 ###
+
+##### 1) 기존 html에 코드만 추가 #####
+
+    ## 스타일 ##
+    <style>
+        .region {
+          fill: #ffffff;
+          stroke: #004c80;
+          stroke-width: 2;
+          cursor: pointer;
+          fill-opacity: 0.3;
+        }
+    
+        .region:hover {
+          fill: #e6e6e6;
+          fill-opacity: 0.5;
+        }
+    
+        .region.active {
+          fill: #808080;
+          fill-opacity: 0.8;
+        }
+      </style>
+    
+    ## 스크립트 ##
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    
+    <script>
+        const svg = d3.select("#map-container");
+        const width = +svg.attr("width");
+        const height = +svg.attr("height");
+    
+        d3.json('/static/geojson/Go-yang-si_merged.json').then(data => {
+          const projection = d3.geoMercator()
+            .fitSize([width, height], data);
+    
+          const path = d3.geoPath().projection(projection);
+    
+          svg.selectAll("path")
+            .data(data.features)
+            .enter()
+            .append("path")
+            .attr("d", path)
+            .attr("class", "region")
+            .on("click", function(event, d) {
+              const guName = d.properties.sggnm;
+              const dongName = d.properties.adm_nm;
+    
+              document.getElementById('selected-gu').textContent = guName;
+              document.getElementById('selected-dong').textContent = dongName;
+    
+              // 다른 동 비활성화, 현재 동 활성화
+              d3.selectAll("path").classed("active", false);
+              d3.select(this).classed("active", true);
+            });
+        }).catch(error => {
+          console.error("GeoJSON 불러오기 오류:", error);
+        });
+      </script>
+    
+    
+    ## body ##
+    <svg id="map-container" width="1000" height="700"></svg>
+    
+      <div>선택된 구 : <span id="selected-gu">없음</span></div>
+      <div>선택된 동 : <span id="selected-dong">없음</span></div>
+
+
+      
+##### 2) html 새로 생성해서 추가할 경우 #####
+
+    ## 앱/urls.py
+    path('section/', views.section_map, name='section-map'),
+
+    ## 앱/views.py
+    def section_map(request):
+    return render(request, 'section.html')
+
+    ## 앱/templates 에서 section.html 생성
+    <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <title>고양시 동 선택</title>
+        <style>
+          .region {
+            fill: #ffffff;
+            stroke: #004c80;
+            stroke-width: 2;
+            cursor: pointer;
+            fill-opacity: 0.3;
+          }
+      
+          .region:hover {
+            fill: #e6e6e6;
+            fill-opacity: 0.5;
+          }
+      
+          .region.active {
+            fill: #808080;
+            fill-opacity: 0.8;
+          }
+        </style>
+      
+        <script src="https://d3js.org/d3.v7.min.js"></script>
+      </head>
+      
+      <body>
+        <h2>동 선택</h2>
+        <svg id="map-container" width="1000" height="700"></svg>
+      
+        <div>선택된 구 : <span id="selected-gu">없음</span></div>
+        <div>선택된 동 : <span id="selected-dong">없음</span></div>
+      
+        <script>
+          const svg = d3.select("#map-container");
+          const width = +svg.attr("width");
+          const height = +svg.attr("height");
+      
+          d3.json('/static/geojson/Go-yang-si_merged.json').then(data => {
+            const projection = d3.geoMercator()
+              .fitSize([width, height], data);
+      
+            const path = d3.geoPath().projection(projection);
+      
+            svg.selectAll("path")
+              .data(data.features)
+              .enter()
+              .append("path")
+              .attr("d", path)
+              .attr("class", "region")
+              .on("click", function(event, d) {
+                const guName = d.properties.sggnm;
+                const dongName = d.properties.adm_nm;
+      
+                document.getElementById('selected-gu').textContent = guName;
+                document.getElementById('selected-dong').textContent = dongName;
+      
+                // 다른 동 비활성화, 현재 동 활성화
+                d3.selectAll("path").classed("active", false);
+                d3.select(this).classed("active", true);
+              });
+          }).catch(error => {
+            console.error("GeoJSON 불러오기 오류:", error);
+          });
+        </script>
+      </body>
+      </html>
+
+
+
+
+    
+
