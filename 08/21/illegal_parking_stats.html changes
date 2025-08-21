@@ -1,0 +1,981 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>불법주차 통계</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+    <style>
+        :root {
+            --bg: #b0c3cf;
+            --card: #1a1f29;
+            --muted: #9ca3af;
+            --text: #f7f7f7;
+            --primary: #4f9cff;
+            --primary-strong: #3b82f6;
+            --accent: #38e1b8;
+            --success: #22c55e;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --line: rgba(255, 255, 255, 0.08);
+            --chip: rgba(79, 156, 255, 0.1);
+            --chip-line: rgba(79, 156, 255, 0.4);
+            --radius: 14px;
+            --radius-sm: 10px;
+            --shadow: 10px 8px 30px rgba(0, 0, 0, 0.5);
+            --glass: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02));
+        }
+
+        /* Page */
+        html, body { height: 100%; }
+        body {
+            transform: scale(0.9);
+            transform-origin: top center;
+            background-repeat: repeat;
+            background-size: cover;
+            background-attachment: fixed;
+            margin: 0;
+            background:
+                radial-gradient(1200px 800px at 10% -10%, rgba(56, 225, 184, 0.12), transparent 45%),
+                radial-gradient(1000px 800px at 110% 10%, rgba(79, 156, 255, 0.12), transparent 40%),
+                var(--bg);
+            color: var(--text);
+            font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans KR", sans-serif;
+        }
+
+        .wrap { max-width: 1400px; margin: 0 auto; padding: 26px; }
+        a { color: inherit; text-decoration: none; }
+
+        /* Top bar */
+        .topbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 14px;
+            margin-bottom: 18px;
+            flex-wrap: wrap;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .back {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            color: var(--text);
+            text-decoration: none;
+            background: var(--glass);
+            backdrop-filter: blur(8px);
+            transition: all 0.18s ease;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+        }
+        .back:hover { transform: translateY(-1px); border-color: var(--chip-line); }
+
+        .title {
+            font-size: 26px;
+            font-weight: 800;
+            letter-spacing: -0.2px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: var(--text);
+            text-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        .badge {
+            font-size: 12px;
+            padding: 4px 8px;
+            border-radius: 999px;
+            border: 1px solid var(--chip-line);
+            background: var(--chip);
+            color: var(--primary);
+        }
+
+        /* Controls */
+        .controls {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .control-group label {
+            font-size: 12px;
+            color: var(--text);
+            font-weight: 700;
+            letter-spacing: 0.3px;
+            text-transform: uppercase;
+        }
+
+        .control-group select {
+            padding: 8px 12px;
+            border: 1px solid var(--chip-line);
+            border-radius: var(--radius-sm);
+            background: linear-gradient(180deg, rgba(26, 31, 41, 0.95), rgba(26, 31, 41, 0.85));
+            backdrop-filter: blur(8px);
+            color: var(--text);
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.18s ease;
+            min-width: 140px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        .control-group select:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(79, 156, 255, 0.2), 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        .control-group select option {
+            background: var(--card);
+            color: var(--text);
+            padding: 8px;
+        }
+
+        /* Card styles */
+        .card {
+            background: linear-gradient(180deg, rgba(26, 31, 41, 0.95), rgba(26, 31, 41, 0.9));
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
+            padding: 20px;
+            box-shadow: var(--shadow);
+            margin-bottom: 18px;
+        }
+
+        .card h2 {
+            margin: 0 0 16px;
+            font-size: 16px;
+            font-weight: 800;
+            color: #cbd5e1;
+            letter-spacing: 0.2px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* Section title */
+        .section-title {
+            margin: 22px 0 10px;
+            font-size: 14px;
+            color: var(--primary);
+            font-weight: 800;
+            letter-spacing: 0.6px;
+            text-transform: uppercase;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            opacity: 0.9;
+        }
+        .section-title:before {
+            content: "";
+            width: 8px;
+            height: 8px;
+            border-radius: 2px;
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            box-shadow: 0 0 18px rgba(79, 156, 255, 0.5);
+        }
+
+        /* Table styles */
+        .table-container {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            border-radius: var(--radius);
+            overflow: hidden;
+        }
+
+        th {
+            background: linear-gradient(135deg, var(--primary-strong), var(--primary));
+            color: white;
+            padding: 14px 16px;
+            text-align: center;
+            font-weight: 700;
+            font-size: 14px;
+            letter-spacing: 0.3px;
+        }
+
+        td {
+            padding: 12px 16px;
+            text-align: center;
+            border-bottom: 1px solid var(--line);
+            background: rgba(255, 255, 255, 0.02);
+            font-size: 14px;
+            transition: background-color 0.2s ease;
+        }
+
+        tr:hover td {
+            background-color: rgba(79, 156, 255, 0.08);
+        }
+
+        tr:nth-child(even) td {
+            background-color: rgba(255, 255, 255, 0.04);
+        }
+
+        .count-cell {
+            font-weight: 700;
+            color: var(--accent);
+        }
+
+        /* Charts container */
+        .charts-layout {
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 20px;
+            margin-top: 16px;
+        }
+
+        .chart-wrapper, .bar-chart-wrapper {
+            background: linear-gradient(180deg, rgba(26, 31, 41, 0.95), rgba(26, 31, 41, 0.9));
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
+            padding: 20px;
+            box-shadow: var(--shadow);
+            text-align: center;
+        }
+
+        .chart-wrapper h3, .bar-chart-wrapper h3 {
+            margin: 0 0 12px;
+            font-size: 16px;
+            font-weight: 700;
+            color: #cbd5e1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .chart-wrapper canvas {
+            border-radius: var(--radius-sm);
+            display: block;
+            width: 80% !important;
+            height: auto !important;
+            aspect-ratio: 1 / 1;
+            margin: 80px auto 0 auto;
+        }
+
+        .bar-chart-wrapper canvas {
+            border-radius: var(--radius-sm);
+            display: block;
+            width: 90% !important;
+            height: 400px !important;
+            margin: 0 auto;
+        }
+
+        .gu-selector {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+
+        .gu-button {
+            padding: 6px 12px;
+            border: 1px solid var(--line);
+            border-radius: 20px;
+            background: rgba(255, 255, 255, 0.03);
+            color: var(--muted);
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .gu-button:hover {
+            border-color: var(--chip-line);
+            background: var(--chip);
+        }
+
+        .gu-button.active {
+            border-color: var(--primary);
+            background: var(--chip);
+            color: var(--primary);
+        }
+
+        /* Loading */
+        .loading {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 40px;
+            color: var(--muted);
+        }
+
+        .spinner {
+            width: 32px;
+            height: 32px;
+            border: 3px solid var(--line);
+            border-top: 3px solid var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 12px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Empty state */
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: var(--muted);
+        }
+
+        /* Stats summary */
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .stat {
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            padding: 16px;
+            background: rgba(255, 255, 255, 0.03);
+            text-align: center;
+        }
+
+        .stat .label {
+            font-size: 12px;
+            color: var(--muted);
+            font-weight: 700;
+            letter-spacing: 0.3px;
+            text-transform: uppercase;
+        }
+
+        .stat .value {
+            margin-top: 8px;
+            font-size: 24px;
+            font-weight: 800;
+            color: var(--accent);
+        }
+
+        /* Responsive */
+        @media (max-width: 840px) {
+            body {
+                transform: scale(1);
+            }
+
+            .topbar {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .header-left {
+                justify-content: space-between;
+            }
+
+            .controls {
+                justify-content: center;
+            }
+
+            .charts-layout {
+                grid-template-columns: 1fr;
+            }
+
+            .stats {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        #barChart {
+            height: 400px !important;
+        }
+
+        .region {
+          fill: #ffffff;
+          stroke: #004c80;
+          stroke-width: 2;
+          cursor: pointer;
+          fill-opacity: 0.3;
+        }
+
+        .region:hover {
+          fill: #e6e6e6;
+          fill-opacity: 0.5;
+        }
+
+        .region.active {
+          fill: #808080;
+          fill-opacity: 0.8;
+        }
+
+        .ilsandonggu {
+          fill: #f08080;
+        }
+
+        .deogyanggu {
+          fill: #90ee90;
+        }
+
+        .ilsanseogu {
+          fill: #87ceeb;
+        }
+
+        .ilsandonggu:hover {
+          fill: #e57373;
+        }
+
+        .deogyanggu:hover {
+          fill: #77dd77;
+        }
+
+        .ilsanseogu:hover {
+          fill: #6cb4e4;
+        }
+
+        .ilsandonggu.active {
+          fill: #e24e4e;
+        }
+
+        .deogyanggu.active {
+          fill: #66cc66;
+        }
+
+        .ilsanseogu.active {
+          fill: #5ca9e1;
+        }
+
+        .dong-name {
+          cursor: pointer;
+          font-size: 12px;
+          fill: black;
+          text-anchor: middle;
+          user-select: none;
+        }
+
+        .dong-name:hover {
+          fill: #ff6347;
+        }
+
+        foreignObject {
+          pointer-events: all;
+        }
+    </style>
+</head>
+<body>
+    <div class="wrap">
+        <!-- Top bar -->
+        <div class="topbar">
+            <div class="header-left">
+                <a href="../" class="back">
+                    ← 메인으로
+                </a>
+                <h1 class="title">
+                    불법주정차 통계
+                    <span class="badge">Analytics</span>
+                </h1>
+            </div>
+            <div class="controls">
+                <div class="control-group">
+                    <label>기간 선택</label>
+                    <select id="periodSelect">
+                        <option value="all">전체 기간</option>
+                        <option value="week">최근 7일</option>
+                        <option value="month">최근 30일</option>
+                        <option value="year">최근 1년</option>
+                    </select>
+                </div>
+                <div class="control-group">
+                    <label>구 선택</label>
+                    <select id="guSelect">
+                        <option value="all">전체 구</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- Summary Stats -->
+        <div class="card">
+            <h2>📊 통계 요약</h2>
+            <div class="stats" id="summaryStats">
+                <div class="stat">
+                    <div class="label">총 건수</div>
+                    <div class="value" id="totalCount">-</div>
+                </div>
+                <div class="stat">
+                    <div class="label">일 평균 건수</div>
+                    <div class="value" id="avgCount">-</div>
+                </div>
+                <div class="stat">
+                    <div class="label">최다 지역</div>
+                    <div class="value" id="maxArea">-</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="tabs">
+            <button class="tab-button active" data-tab="map-tab">지도</button>
+            <button class="tab-button" data-tab="table-tab">표</button>
+            <button class="tab-button" data-tab="chart-tab">파이차트</button>
+        </div>
+
+        <!-- Tab Contents -->
+
+        <div class="tab-content" id="map-tab">
+            <svg id="map-container" width="800" height="560"></svg>
+            <div>선택된 구 : <span id="selected-gu">없음</span></div>
+            <div>선택된 동 : <span id="selected-dong">없음</span></div>
+        </div>
+
+        <div class="tab-content" id="table-tab" style="display:none;">
+            <div class="card">
+                <h2>📋 지역별 불법주정차 현황</h2>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>동</th>
+                                <th>불법주정차 건수</th>
+                                <th>비율</th>
+                            </tr>
+                        </thead>
+                        <tbody id="statsTableBody">
+                            <tr>
+                                <td colspan="3" class="loading">
+                                    <div class="spinner"></div>
+                                    데이터 로딩 중...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="tab-content" id="chart-tab" style="display:none;">
+            <div class="section-title">데이터 시각화</div>
+            <div class="charts-layout" id="chartContainer">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    차트 로딩 중...
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const chartColors = [
+            '#2563eb', '#dc2626', '#059669', '#d97706', '#7c3aed',
+            '#0891b2', '#be185d', '#65a30d', '#c2410c', '#4338ca'
+        ];
+
+        function extractGu(district) { return district.split(' ')[0] || '알 수 없음'; }
+        function extractDong(district) { return district.split(' ')[1] || '알 수 없음'; }
+
+        let pieChart = null;
+        let barChart = null;
+        let allData = [];
+
+        // ===== 초기 데이터 로드 =====
+        async function loadGuList() {
+            try {
+                const res = await fetch('/api/illegal_parking/districts/');
+                const data = await res.json();
+                const gus = Array.from(new Set(data.map(d => extractGu(d))));
+                const guSelect = document.getElementById('guSelect');
+                guSelect.innerHTML = '<option value="all">전체 구</option>';
+                gus.forEach(gu => {
+                    const option = document.createElement('option');
+                    option.value = gu;
+                    option.textContent = gu;
+                    guSelect.appendChild(option);
+                });
+            } catch (error) { console.error('구 목록 로드 실패:', error); }
+        }
+
+        function updateSummaryStats(data) {
+            const totalCount = data.reduce((sum, item) => sum + item.count, 0);
+            const avgCount = data.length > 0 ? Math.round(totalCount / data.length) : 0;
+            const maxItem = data.reduce((max, item) => item.count > max.count ? item : max, { count: 0, district: '-' });
+
+            document.getElementById('totalCount').textContent = totalCount.toLocaleString();
+            document.getElementById('avgCount').textContent = avgCount.toLocaleString();
+            document.getElementById('maxArea').textContent = extractDong(maxItem.district);
+        }
+
+        async function loadTable(period='week', gu='all') {
+            try {
+                let url = `/api/illegal_parking/stats/?period=${period}`;
+                if (gu && gu !== 'all') url += `&gu=${gu}`;
+                const res = await fetch(url);
+                const data = await res.json();
+                renderTable(data);
+                updateSummaryStats(data);
+            } catch (error) {
+                console.error('통계 데이터 로드 실패:', error);
+                const tbody = document.getElementById('statsTableBody');
+                tbody.innerHTML = '<tr><td colspan="3" class="empty-state">데이터 로드에 실패했습니다.</td></tr>';
+            }
+        }
+
+        function renderTable(data) {
+            const tbody = document.getElementById('statsTableBody');
+            tbody.innerHTML = '';
+            if (data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="3" class="empty-state">데이터가 없습니다.</td></tr>';
+                return;
+            }
+            const totalCount = data.reduce((sum, item) => sum + item.count, 0);
+            data.forEach(item => {
+                const tr = document.createElement('tr');
+                const percentage = totalCount > 0 ? ((item.count / totalCount) * 100).toFixed(1) : '0.0';
+                tr.innerHTML = `
+                    <td><strong>${extractDong(item.district)}</strong></td>
+                    <td class="count-cell">${item.count.toLocaleString()}건</td>
+                    <td>${percentage}%</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // ===== 차트 렌더링 =====
+        async function loadCharts() {
+            try {
+                const res = await fetch('/api/illegal_parking/stats/?period=all');
+                const data = await res.json();
+                renderCharts(data);
+            } catch (error) {
+                console.error('차트 데이터 로드 실패:', error);
+                document.getElementById('chartContainer').innerHTML =
+                    '<div class="empty-state">차트 로드에 실패했습니다.</div>';
+            }
+        }
+
+        function renderCharts(data) {
+            const chartContainer = document.getElementById('chartContainer');
+            chartContainer.innerHTML = '';
+            allData = data;
+
+            const guData = {};
+            data.forEach(item => {
+                const gu = extractGu(item.district);
+                if (!guData[gu]) guData[gu] = 0;
+                guData[gu] += item.count;
+            });
+
+            const sortedGuData = Object.entries(guData)
+                .sort((a, b) => b[1] - a[1])
+                .map(([gu, count]) => ({ gu, count }));
+
+            // Pie Chart
+            const pieWrapper = document.createElement('div');
+            pieWrapper.className = 'chart-wrapper';
+            pieWrapper.innerHTML = `<h3>📊 구별 불법주정차 현황</h3><canvas id="pieChart"></canvas>`;
+            chartContainer.appendChild(pieWrapper);
+
+            // Bar Chart + 구 선택 버튼
+            const barWrapper = document.createElement('div');
+            barWrapper.className = 'bar-chart-wrapper';
+            barWrapper.innerHTML = `
+                <h3>📈 동별 불법주정차 상세현황</h3>
+                <div class="gu-selector" id="guSelector"></div>
+                <canvas id="barChart"></canvas>
+            `;
+            chartContainer.appendChild(barWrapper);
+
+            const guSelector = document.getElementById('guSelector');
+            sortedGuData.forEach((item, index) => {
+                const button = document.createElement('button');
+                button.className = `gu-button ${index === 0 ? 'active' : ''}`;
+                button.textContent = item.gu;
+                button.onclick = () => selectGu(item.gu, button);
+                guSelector.appendChild(button);
+            });
+
+            createPieChart(sortedGuData);
+            if (sortedGuData.length > 0) createBarChart(sortedGuData[0].gu);
+        }
+
+        function createPieChart(guData) {
+            const ctx = document.getElementById('pieChart').getContext('2d');
+            if (pieChart) pieChart.destroy();
+
+            const labels = guData.map(item => item.gu);
+            const counts = guData.map(item => item.count);
+            const backgroundColors = labels.map((_, i) => chartColors[i % chartColors.length]);
+
+            pieChart = new Chart(ctx, {
+                type: 'pie',
+                data: { labels, datasets: [{ data: counts, backgroundColor: backgroundColors, borderColor: 'rgba(255,255,255,0.2)', borderWidth: 2 }] },
+                options: {
+                    responsive: false,
+                    plugins: {
+                        legend: { position: 'bottom', labels: { color: '#cbd5e1', usePointStyle: true } },
+                        tooltip: {
+                            backgroundColor: 'rgba(26,31,41,0.95)',
+                            titleColor: '#f7f7f7',
+                            bodyColor: '#cbd5e1',
+                            borderColor: '#4f9cff',
+                            borderWidth: 1,
+                            callbacks: {
+                                label: function(ctx) {
+                                    const total = ctx.dataset.data.reduce((a,b)=>a+b,0);
+                                    const percent = ((ctx.raw/total)*100).toFixed(1);
+                                    return `${ctx.label}: ${ctx.raw.toLocaleString()}건 (${percent}%)`;
+                                }
+                            }
+                        },
+                        datalabels: {
+                            color: '#ffffff',
+                            font: { weight: '900', size: 14 },
+                            formatter: (value, ctx) => {
+                                const total = ctx.dataset.data.reduce((a,b)=>a+b,0);
+                                const percent = ((value/total)*100);
+                                return percent < 5 ? '' : `${percent.toFixed(1)}%`;
+                            },
+                            anchor: 'end', align: 'center',
+                            backgroundColor: 'rgba(26,31,41,0.9)',
+                            borderColor: 'rgba(79,156,255,0.5)',
+                            borderWidth: 1, borderRadius: 4, padding: 4
+                        }
+                    },
+                    onClick: (event, elements) => { if(elements.length>0) selectGu(labels[elements[0].index]); }
+                },
+                plugins: [ChartDataLabels]
+            });
+        }
+
+        function createBarChart(selectedGu) {
+            const ctx = document.getElementById('barChart').getContext('2d');
+            if (barChart) barChart.destroy();
+
+            const dongData = allData
+                .filter(item => extractGu(item.district) === selectedGu)
+                .sort((a,b)=>b.count - a.count);
+
+            const labels = dongData.map(item => extractDong(item.district));
+            const counts = dongData.map(item => item.count);
+
+            barChart = new Chart(ctx, {
+                type: 'bar',
+                data: { labels, datasets: [{ label: '불법주정차 건수', data: counts, backgroundColor: 'rgba(79,156,255,0.8)', borderColor: 'rgba(79,156,255,1)', borderWidth: 1, borderRadius: 4, barThickness: 30 }] },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: { beginAtZero:true, ticks:{color:'#9ca3af', font:{size:14, weight:'bold'}}, grid:{color:'rgba(255,255,255,0.1)'}, suggestedMax: Math.max(...counts)*1.2 },
+                        x: { ticks:{color:'#9ca3af', font:{size:14, weight:'bold'}, maxRotation:45}, grid:{display:false} }
+                    },
+                    plugins: {
+                        legend:{ display:false },
+                        tooltip:{ backgroundColor:'rgba(26,31,41,0.95)', titleColor:'#f7f7f7', bodyColor:'#cbd5e1', borderColor:'#4f9cff', borderWidth:1, callbacks:{ label: ctx=>`${ctx.label}: ${ctx.raw.toLocaleString()}건` }},
+                        datalabels:{ anchor:'end', align:'top', color:'#cbd5e1', font:{size:14, weight:'bold'}, formatter: value=>value.toLocaleString() }
+                    }
+                },
+                plugins: [ChartDataLabels]
+            });
+        }
+
+        function selectGu(selectedGu, buttonElement=null) {
+            if(buttonElement){
+                document.querySelectorAll('.gu-button').forEach(btn => btn.classList.remove('active'));
+                buttonElement.classList.add('active');
+            } else {
+                document.querySelectorAll('.gu-button').forEach(btn => btn.classList.toggle(btn.textContent===selectedGu));
+            }
+            createBarChart(selectedGu);
+            const filteredData = allData.filter(item => extractGu(item.district)===selectedGu);
+            renderTable(filteredData);
+        }
+
+        // ===== 지도 클릭 연동 함수 =====
+        function updateChartsAndTableByDong(gu, dong) {
+            createBarChart(gu);
+            const filteredData = allData.filter(item => extractGu(item.district)===gu);
+            renderTable(filteredData);
+            const guButtons = document.querySelectorAll('.gu-button');
+            guButtons.forEach(btn => btn.classList.toggle('active', btn.textContent===gu));
+        }
+
+        // ===== D3 지도 로드 =====
+        const svg = d3.select("#map-container");
+        const width = +svg.attr("width");
+        const height = +svg.attr("height");
+
+        d3.json('/static/geojson/Go-yang-si_merged.json').then(data => {
+          const projection = d3.geoMercator().fitSize([width, height], data);
+          const path = d3.geoPath().projection(projection);
+
+          svg.selectAll("path")
+            .data(data.features)
+            .enter()
+            .append("path")
+            .attr("d", path)
+            .attr("class", function(d) {
+              const guName = d.properties.sggnm;
+
+              if (guName.includes('일산동구')) {
+                return 'region ilsandonggu';
+              } else if (guName.includes('덕양구')) {
+                return 'region deogyanggu';
+              } else if (guName.includes('일산서구')) {
+                return 'region ilsanseogu';
+              } else {
+                return 'region';
+              }
+            })
+            .on("click", function(event, d) {
+              const guName = d.properties.sggnm;
+              const dongName = d.properties.adm_nm;
+
+              let gu = guName.slice(3);
+              let dong = dongName.slice(-3);
+
+              document.getElementById('selected-gu').textContent = gu;
+              document.getElementById('selected-dong').textContent = dong;
+
+              d3.selectAll("path").classed("active", false);
+              d3.select(this).classed("active", true);
+            });
+
+          svg.selectAll("foreignObject")
+            .data(data.features)
+            .enter()
+            .append("foreignObject")
+            .attr("x", function(d) {
+              const centroid = path.centroid(d);
+              return centroid[0] - 20;
+            })
+            .attr("y", function(d) {
+              const centroid = path.centroid(d);
+              return centroid[1] - 10;
+            })
+            .attr("width", function(d) {
+              const dongName = d.properties.adm_nm.slice(-3);
+              return dongName.length * 10 + 10;
+            })
+            .attr("height", 20)
+            .append("xhtml:div")
+            .html(function(d) {
+              return `<span class="dong-name">${d.properties.adm_nm.slice(-3)}</span>`;
+            })
+            .on("click", function(event, d) {
+              const guName = d.properties.sggnm;
+              const dongName = d.properties.adm_nm;
+
+              let gu = guName.slice(3);
+              let dong = dongName.slice(-3);
+
+              document.getElementById('selected-gu').textContent = gu;
+              document.getElementById('selected-dong').textContent = dong;
+
+              d3.selectAll("path").classed("active", false);
+              d3.select(this).classed("active", true);
+
+              const dongPath = svg.selectAll("path").filter(function(pathData) {
+                return pathData.properties.adm_nm === dongName;
+              });
+
+              dongPath.classed("active", true);
+            })
+            .on("mouseover", function(event, d) {
+              const dongName = d.properties.adm_nm.slice(-3);
+
+              svg.selectAll("path")
+                .filter(function(pathData) {
+                  return pathData.properties.adm_nm === dongName;
+                })
+                .classed("hover", true);
+            })
+            .on("mouseout", function(event, d) {
+              svg.selectAll("path")
+                .filter(function(pathData) {
+                  return pathData.properties.adm_nm === d.properties.adm_nm;
+                })
+                .classed("hover", false);
+            });
+
+          document.getElementById("ilsandonggu-btn").addEventListener("click", () => {
+            d3.selectAll(".ilsandonggu").classed("active", true);
+            d3.selectAll(".deogyanggu").classed("active", false);
+            d3.selectAll(".ilsanseogu").classed("active", false);
+            document.getElementById('selected-gu').textContent = "일산동구";
+            document.getElementById('selected-dong').textContent = "없음";
+          });
+
+          document.getElementById("deogyanggu-btn").addEventListener("click", () => {
+            d3.selectAll(".deogyanggu").classed("active", true);
+            d3.selectAll(".ilsandonggu").classed("active", false);
+            d3.selectAll(".ilsanseogu").classed("active", false);
+            document.getElementById('selected-gu').textContent = "덕양구";
+            document.getElementById('selected-dong').textContent = "없음";
+          });
+
+          document.getElementById("ilsanseogu-btn").addEventListener("click", () => {
+            d3.selectAll(".ilsanseogu").classed("active", true);
+            d3.selectAll(".ilsandonggu").classed("active", false);
+            d3.selectAll(".deogyanggu").classed("active", false);
+            document.getElementById('selected-gu').textContent = "일산서구";
+            document.getElementById('selected-dong').textContent = "없음";
+          });
+
+        }).catch(error => {
+          console.error("GeoJSON 불러오기 오류:", error);
+        });
+
+        // ===== 페이지 로딩 =====
+        window.onload = async () => {
+            await loadGuList();
+            const periodSelect = document.getElementById('periodSelect');
+            const guSelect = document.getElementById('guSelect');
+
+            loadTable(periodSelect.value, guSelect.value);
+            loadCharts();
+
+            periodSelect.addEventListener('change', ()=>loadTable(periodSelect.value, guSelect.value));
+            guSelect.addEventListener('change', ()=>loadTable(periodSelect.value, guSelect.value));
+        };
+
+        const tabButtons = document.querySelectorAll('.tab-button');
+        const tabContents = document.querySelectorAll('.tab-content');
+
+        tabButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const target = btn.dataset.tab;
+
+                // 버튼 active 상태 변경
+                tabButtons.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+
+                // 콘텐츠 표시 변경
+                tabContents.forEach(content => {
+                    if (content.id === target) {
+                        content.style.display = 'block';
+                    } else {
+                        content.style.display = 'none';
+                    }
+                });
+            });
+        });
+    </script>
+
+</body>
+</html>
