@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>고양시 동 선택</title>
+  <style>
+    .region {
+      fill: #ffffff;
+      stroke: #004c80;
+      stroke-width: 2;
+      cursor: pointer;
+      fill-opacity: 0.3;
+    }
+
+    .region:hover {
+      fill: #e6e6e6;
+      fill-opacity: 0.5;
+    }
+
+    .region.active {
+      fill: #808080;
+      fill-opacity: 0.8;
+    }
+
+    .ilsandonggu {
+      fill: #f08080;
+    }
+
+    .deogyanggu {
+      fill: #90ee90;
+    }
+
+    .ilsanseogu {
+      fill: #87ceeb;
+    }
+
+    .ilsandonggu:hover {
+      fill: #e57373;
+    }
+
+    .deogyanggu:hover {
+      fill: #77dd77;
+    }
+
+    .ilsanseogu:hover {
+      fill: #6cb4e4;
+    }
+
+    .ilsandonggu.active {
+      fill: #e24e4e;
+    }
+
+    .deogyanggu.active {
+      fill: #66cc66;
+    }
+
+    .ilsanseogu.active {
+      fill: #5ca9e1;
+    }
+
+    .dong-name {
+      cursor: pointer;
+      font-size: 12px;
+      fill: black;
+      text-anchor: middle;
+      user-select: none;
+    }
+
+    .dong-name:hover {
+      fill: #ff6347;
+    }
+
+    foreignObject {
+      pointer-events: all;
+    }
+
+  </style>
+</head>
+
+<body>
+  <!-- 구 이름 버튼 -->
+  <button id="ilsanseogu-btn">일산서구</button>
+  <button id="ilsandonggu-btn">일산동구</button>
+  <button id="deogyanggu-btn">덕양구</button>
+
+  <svg id="map-container" width="1000" height="700"></svg>
+
+  <div>선택된 구 : <span id="selected-gu">없음</span></div>
+  <div>선택된 동 : <span id="selected-dong">없음</span></div>
+
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <script>
+    const svg = d3.select("#map-container");
+    const width = +svg.attr("width");
+    const height = +svg.attr("height");
+
+    d3.json('/static/geojson/goyang.geojson').then(data => {
+
+      // 1. 하드코딩으로 동별 구 정보 추가
+      const dongToGu = {
+        // 덕양구
+        "주교동" : "덕양구",
+        "성사동" : "덕양구",
+        "원당동" : "덕양구",
+        "신원동" : "덕양구",
+        "원흥동" : "덕양구",
+        "도내동" : "덕양구",
+        "북한동" : "덕양구",
+        "효자동" : "덕양구",
+        "지축동" : "덕양구",
+        "오금동" : "덕양구",
+        "삼송동" : "덕양구",
+        "동산동" : "덕양구",
+        "용두동" : "덕양구",
+        "벽제동" : "덕양구",
+        "선유동" : "덕양구",
+        "고양동" : "덕양구",
+        "대자동" : "덕양구",
+        "관산동" : "덕양구",
+        "내유동" : "덕양구",
+        "토당동" : "덕양구",
+        "내곡동" : "덕양구",
+        "대장동" : "덕양구",
+        "신평동" : "덕양구",
+        "화정동" : "덕양구",
+        "행주내동" : "덕양구",
+        "행주외동" : "덕양구",
+        "행신동" : "덕양구",
+        "강매동" : "덕양구",
+        "화전동" : "덕양구",
+        "덕은동" : "덕양구",
+        "향동동" : "덕양구",
+        "현천동" : "덕양구",
+
+        // 일산동구
+        "설문동" : "일산동구",
+        "지영동" : "일산동구",
+        "성석동" : "일산동구",
+        "문봉동" : "일산동구",
+        "사리현동" : "일산동구",
+        "중산동" : "일산동구",
+        "식사동" : "일산동구",
+        "정발산동" : "일산동구",
+        "마두동" : "일산동구",
+        "풍동" : "일산동구",
+        "장항동" : "일산동구",
+        "백석동" : "일산동구",
+        "산황동" : "일산동구",
+
+        // 일산서구
+        "구산동" : "일산서구",
+        "가좌동" : "일산서구",
+        "덕이동" : "일산서구",
+        "탄현동" : "일산서구",
+        "법곳동" : "일산서구",
+        "대화동" : "일산서구",
+        "주엽동" : "일산서구",
+        "일산동" : "일산서구"
+      };
+
+      data.features.forEach(f => {
+        const dong = f.properties.A2;
+        f.properties.gu = dongToGu[dong] || "기타";
+      });
+
+      const projection = d3.geoMercator().fitSize([width, height], data);
+      const path = d3.geoPath().projection(projection);
+
+      // 지도 그리기
+      svg.selectAll("path")
+        .data(data.features)
+        .enter()
+        .append("path")
+        .attr("d", path)
+        .attr("class", function(d) {
+          if(d.properties.gu === "일산동구") return "region ilsandonggu";
+          if(d.properties.gu === "덕양구") return "region deogyanggu";
+          if(d.properties.gu === "일산서구") return "region ilsanseogu";
+          return "region";
+        })
+        .on("click", function(event, d) {
+          const dongName = d.properties.A2;
+          const gu = d.properties.gu;
+
+          document.getElementById('selected-gu').textContent = gu;
+          document.getElementById('selected-dong').textContent = dongName;
+
+          d3.selectAll("path").classed("active", false);
+          d3.select(this).classed("active", true);
+        });
+
+      const dongOffset = {
+        "행주외동": {x: -15, y: 0},
+        "행주내동": {x: -19, y: -18},
+        "대장동": {x: -2, y: -12},
+        "지축동": {x: -5, y: 0},
+        "신평동": {x: 0, y: -3}
+        // 필요에 따라 더 추가
+      };
+
+      svg.selectAll("foreignObject")
+  .data(data.features)
+  .enter()
+  .append("foreignObject")
+  .attr("x", d => {
+    const offset = dongOffset[d.properties.A2] || {x: -20};
+    return path.centroid(d)[0] + offset.x;
+  })
+  .attr("y", d => {
+    const offset = dongOffset[d.properties.A2] || {y: -10};
+    return path.centroid(d)[1] + offset.y;
+  })
+  .attr("width", d => d.properties.A2.length * 10 + 10)
+  .attr("height", 20)
+  .append("xhtml:div")
+  .html(d => `<span class="dong-name">${d.properties.A2}</span>`)
+  .on("click", function(event, d) {
+    const dongName = d.properties.A2;
+    const gu = d.properties.gu;
+
+    document.getElementById('selected-gu').textContent = gu;
+    document.getElementById('selected-dong').textContent = dongName;
+
+    d3.selectAll("path").classed("active", false);
+    svg.selectAll("path")
+      .filter(pathData => pathData.properties.A2 === dongName)
+      .classed("active", true);
+  });
+
+      // 구 버튼 클릭
+      document.getElementById("ilsandonggu-btn").addEventListener("click", () => {
+        d3.selectAll(".ilsandonggu").classed("active", true);
+        d3.selectAll(".deogyanggu").classed("active", false);
+        d3.selectAll(".ilsanseogu").classed("active", false);
+        document.getElementById('selected-gu').textContent = "일산동구";
+        document.getElementById('selected-dong').textContent = "없음";
+      });
+
+      document.getElementById("deogyanggu-btn").addEventListener("click", () => {
+        d3.selectAll(".deogyanggu").classed("active", true);
+        d3.selectAll(".ilsandonggu").classed("active", false);
+        d3.selectAll(".ilsanseogu").classed("active", false);
+        document.getElementById('selected-gu').textContent = "덕양구";
+        document.getElementById('selected-dong').textContent = "없음";
+      });
+
+      document.getElementById("ilsanseogu-btn").addEventListener("click", () => {
+        d3.selectAll(".ilsanseogu").classed("active", true);
+        d3.selectAll(".ilsandonggu").classed("active", false);
+        d3.selectAll(".deogyanggu").classed("active", false);
+        document.getElementById('selected-gu').textContent = "일산서구";
+        document.getElementById('selected-dong').textContent = "없음";
+      });
+
+    }).catch(error => {
+      console.error("GeoJSON 불러오기 오류:", error);
+    });
+  </script>
+</body>
+</html>
