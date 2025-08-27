@@ -1,0 +1,1216 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>불법주차 통계</title>
+    <style>
+        :root {
+            --bg: #b0c3cf;
+            --card: #1a1f29;
+            --muted: #9ca3af;
+            --text: #f7f7f7;
+            --primary: #4f9cff;
+            --primary-strong: #3b82f6;
+            --accent: #38e1b8;
+            --success: #22c55e;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --line: rgba(255, 255, 255, 0.08);
+            --chip: rgba(79, 156, 255, 0.1);
+            --chip-line: rgba(79, 156, 255, 0.4);
+            --radius: 14px;
+            --radius-sm: 10px;
+            --shadow: 10px 8px 30px rgba(0, 0, 0, 0.5);
+            --glass: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02));
+        }
+
+        /* Page */
+        html, body { height: 100%; }
+        body {
+            transform: scale(0.9);
+            transform-origin: top center;
+            background-repeat: repeat;
+            background-size: cover;
+            background-attachment: fixed;
+            margin: 0;
+            background:
+                radial-gradient(1200px 800px at 10% -10%, rgba(56, 225, 184, 0.12), transparent 45%),
+                radial-gradient(1000px 800px at 110% 10%, rgba(79, 156, 255, 0.12), transparent 40%),
+                var(--bg);
+            color: var(--text);
+            font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans KR", sans-serif;
+        }
+
+        .wrap { max-width: 1400px; margin: 0 auto; padding: 26px; }
+        a { color: inherit; text-decoration: none; }
+
+        /* Top bar */
+        .topbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 14px;
+            margin-bottom: 18px;
+            flex-wrap: wrap;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .back {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            color: var(--text);
+            text-decoration: none;
+            background: var(--glass);
+            backdrop-filter: blur(8px);
+            transition: all 0.18s ease;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+        }
+        .back:hover { transform: translateY(-1px); border-color: var(--chip-line); }
+
+        .title {
+            font-size: 26px;
+            font-weight: 800;
+            letter-spacing: -0.2px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: var(--text);
+            text-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        .badge {
+            font-size: 12px;
+            padding: 4px 8px;
+            border-radius: 999px;
+            border: 1px solid var(--chip-line);
+            background: var(--chip);
+            color: var(--primary);
+        }
+
+        /* Controls */
+        .controls {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .control-group label {
+            font-size: 12px;
+            color: var(--text);
+            font-weight: 700;
+            letter-spacing: 0.3px;
+            text-transform: uppercase;
+        }
+
+        .control-group select {
+            padding: 8px 12px;
+            border: 1px solid var(--chip-line);
+            border-radius: var(--radius-sm);
+            background: linear-gradient(180deg, rgba(26, 31, 41, 0.95), rgba(26, 31, 41, 0.85));
+            backdrop-filter: blur(8px);
+            color: var(--text);
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.18s ease;
+            min-width: 140px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        .control-group select:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(79, 156, 255, 0.2), 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        .control-group select option {
+            background: var(--card);
+            color: var(--text);
+            padding: 8px;
+        }
+
+        /* Main Grid Layout */
+        .main-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 30px;
+            height: calc(100vh - 160px);
+        }
+
+        .left-column {
+            display: flex;
+            flex-direction: column;
+            gap: 25px;
+        }
+
+        .right-column {
+            display: flex;
+            flex-direction: column;
+            gap: 25px;
+        }
+
+        .summary-section {
+            height: 140px;
+            flex-shrink: 0;
+        }
+
+        .map-section {
+            height: 675px;
+            flex-shrink: 0;
+        }
+
+        .pie-section {
+            height: 300px;
+            flex-shrink: 0;
+        }
+
+        .tabs-section {
+            height: 570px;
+            flex-shrink: 0;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Card styles */
+        .card {
+            background: linear-gradient(180deg, rgba(26, 31, 41, 0.95), rgba(26, 31, 41, 0.9));
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
+            padding: 20px;
+            box-shadow: var(--shadow);
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            margin-bottom: 15px;
+        }
+
+        .summary-section .card { margin-bottom: 20px; }
+        .map-section .card { position: relative; margin-top: 20px; }
+        .pie-section .card { margin-bottom: 20px; }
+        .tabs-section { margin-top: 20px; }
+
+        .card h2 {
+            margin: 0 0 16px;
+            font-size: 16px;
+            font-weight: 800;
+            color: #cbd5e1;
+            letter-spacing: 0.2px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-shrink: 0;
+        }
+
+        /* Stats summary */
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+        }
+
+        .stat {
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            padding: 16px;
+            background: rgba(255, 255, 255, 0.03);
+            text-align: center;
+        }
+
+        .stat .label { font-size: 12px; color: var(--muted); font-weight: 700; letter-spacing: 0.3px; text-transform: uppercase; }
+        .stat .value { margin-top: 8px; font-size: 20px; font-weight: 800; color: var(--accent); }
+
+        /* Map styles */
+        #map-container, #map-choropleth {
+            width: 100%;
+            height: 530px;
+            border-radius: var(--radius-sm);
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .map-info { margin-top: 12px; display: flex; gap: 20px; font-size: 14px; color: var(--muted); }
+        .map-info span { color: var(--accent); font-weight: 600; }
+
+        /* Map region styles */
+        .region {
+          fill: #ffffff;
+          stroke: #004c80;
+          stroke-width: 2;
+          cursor: pointer;
+          fill-opacity: 0.3;
+        }
+        .region:hover { fill: #e6e6e6; fill-opacity: 0.5; }
+        .region.active { fill: #808080; fill-opacity: 0.8; }
+        .ilsandonggu { fill: #f08080; }
+        .deogyanggu { fill: #90ee90; }
+        .ilsanseogu { fill: #87ceeb; }
+        .ilsandonggu:hover { fill: #e57373; }
+        .deogyanggu:hover { fill: #77dd77; }
+        .ilsanseogu:hover { fill: #6cb4e4; }
+        .ilsandonggu.active { fill: #e24e4e; }
+        .deogyanggu.active { fill: #66cc66; }
+        .ilsanseogu.active { fill: #5ca9e1; }
+        .dong-name { cursor: pointer; font-size: 12px; fill: black; text-anchor: middle; user-select: none; }
+        foreignObject { pointer-events: all; }
+
+        /* Map tabs (NEW) */
+        .map-tabs { display: flex; gap: 8px; margin: -6px 0 8px; }
+        .map-toggle-button {
+          padding: 8px 12px;
+          border: 1px solid var(--line);
+          border-radius: 999px;
+          background: rgba(255, 255, 255, 0.05);
+          color: var(--muted);
+          font-size: 12px;
+          font-weight: 700;
+          cursor: pointer;
+          transition: all .18s ease;
+        }
+        .map-toggle-button:hover { border-color: var(--chip-line); background: var(--chip); }
+        .map-toggle-button.active { border-color: var(--primary); background: var(--chip); color: var(--primary); }
+
+        /* Choropleth legend (NEW) */
+        .choro-legend-wrapper { margin-top: 8px; display: none; }
+        .choro-legend-bar { height: 10px; border-radius: 6px; background: linear-gradient(90deg, #cce5ff, #003366); }
+        .choro-legend-labels { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); margin-top: 4px; }
+
+        /* Pie Chart styles */
+        .pie-container { height: calc(300px - 80px); display: flex; align-items: center; justify-content: center; padding: 20px 0; }
+        .pie-container canvas { max-width: 300px !important; max-height: 300px !important; width: 230px !important; height: 230px !important; }
+
+        /* Tabs styles */
+        .tabs { display: flex; gap: 2px; margin-bottom: 0; border-radius: var(--radius) var(--radius) 0 0; overflow: hidden; flex-shrink: 0; }
+        .tab-button { flex: 1; padding: 12px 20px; border: none; background: rgba(255, 255, 255, 0.05); color: var(--muted); font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s ease; border-bottom: 2px solid transparent; }
+        .tab-button:hover { background: rgba(255, 255, 255, 0.08); color: var(--text); }
+        .tab-button.active { background: linear-gradient(135deg, var(--primary-strong), var(--primary)); color: white; border-bottom-color: var(--accent); }
+
+        /* Tab Content Container */
+        .tab-content-container { height: calc(570px - 48px); display: flex; flex-direction: column; }
+        .tab-content { height: 100%; display: flex; flex-direction: column; }
+        .tab-content .card { margin: 0; border-radius: 0 0 var(--radius) var(--radius); border-top: none; height: 100%; }
+
+        /* Table styles */
+        .table-container { height: calc(512px - 80px); overflow-y: auto; border-radius: var(--radius-sm); }
+        table { width: 100%; border-collapse: collapse; border-radius: var(--radius); overflow: hidden; }
+        th { background: linear-gradient(135deg, var(--primary-strong), var(--primary)); color: white; padding: 14px 16px; text-align: center; font-weight: 700; font-size: 14px; letter-spacing: 0.3px; position: sticky; top: 0; z-index: 10; }
+        td { padding: 12px 16px; text-align: center; border-bottom: 1px solid var(--line); background: rgba(255, 255, 255, 0.02); font-size: 14px; transition: background-color 0.2s ease; }
+        tr:hover td { background-color: rgba(79, 156, 255, 0.08); }
+        tr:nth-child(even) td { background-color: rgba(255, 255, 255, 0.04); }
+        .count-cell { font-weight: 700; color: var(--accent); }
+
+        /* Bar Chart styles */
+        .bar-chart-content { height: calc(512px - 80px); display: flex; flex-direction: column; }
+        .gu-selector { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; height: 40px; align-items: center; flex-shrink: 0; }
+        .gu-button { padding: 6px 12px; border: 1px solid var(--line); border-radius: 20px; background: rgba(255, 255, 255, 0.03); color: var(--muted); font-size: 12px; cursor: pointer; transition: all 0.2s ease; height: 32px; display: flex; align-items: center; }
+        .gu-button:hover { border-color: var(--chip-line); background: var(--chip); }
+        .gu-button.active { border-color: var(--primary); background: var(--chip); color: var(--primary); }
+        .bar-container { height: calc(100% - 56px); position: relative; }
+        .bar-container canvas { width: 100% !important; height: 100% !important; }
+
+        /* Loading */
+        .loading { display: flex; justify-content: center; align-items: center; padding: 40px; color: var(--muted); }
+        .spinner { width: 32px; height: 32px; border: 3px solid var(--line); border-top: 3px solid var(--primary); border-radius: 50%; animation: spin 1s linear infinite; margin-right: 12px; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        /* Empty state */
+        .empty-state { text-align: center; padding: 40px; color: var(--muted); }
+
+        /* Responsive */
+        @media (max-width: 1200px) {
+            .main-grid { grid-template-columns: 1fr; height: auto; }
+            .left-column { order: 1; }
+            .right-column { order: 2; }
+            .pie-section { flex: 0 0 250px; }
+            .stats { grid-template-columns: repeat(3, 1fr); }
+        }
+
+        @media (max-width: 840px) {
+            body { transform: scale(1); }
+            .topbar { flex-direction: column; align-items: stretch; }
+            .header-left { justify-content: space-between; }
+            .controls { justify-content: center; }
+            .main-grid { gap: 15px; }
+            .stats { grid-template-columns: repeat(2, 1fr); }
+            .stat .value { font-size: 18px; }
+        }
+
+        @media (max-width: 640px) { .stats { grid-template-columns: 1fr; } .gu-selector { justify-content: center; } }
+
+        .highlight-row {
+            background-color: rgba(79, 156, 255, 0.15);
+            font-weight: bold;
+        }
+
+    </style>
+</head>
+<body>
+    <div class="wrap">
+        <!-- Top bar -->
+        <div class="topbar">
+            <div class="header-left">
+                <a href="../" class="back">
+                    ← 메인으로
+                </a>
+                <h1 class="title">
+                    불법주정차 통계
+                    <span class="badge">Analytics</span>
+                </h1>
+            </div>
+            <div class="controls">
+                <div class="control-group">
+                    <label>기간 선택</label>
+                    <select id="periodSelect">
+                        <option value="all">전체 기간</option>
+                        <option value="week">최근 7일</option>
+                        <option value="month">최근 30일</option>
+                        <option value="year">최근 1년</option>
+                    </select>
+                </div>
+                <div class="control-group">
+                    <label>구 선택</label>
+                    <select id="guSelect">
+                        <option value="all">전체 구</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2x2 Grid Layout -->
+        <div class="main-grid">
+            <!-- Left Column -->
+            <div class="left-column">
+                <!-- Summary Stats -->
+                <div class="summary-section">
+                    <div class="card">
+                        <h2>📊 통계 요약</h2>
+                        <div class="stats" id="summaryStats">
+                            <div class="stat">
+                                <div class="label">총 건수</div>
+                                <div class="value" id="totalCount">-</div>
+                            </div>
+                            <div class="stat">
+                                <div class="label">동별 평균 건수</div>
+                                <div class="value" id="avgCount">-</div>
+                            </div>
+                            <div class="stat">
+                                <div class="label">최다 지역</div>
+                                <div class="value" id="maxArea">-</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Map Section -->
+                <div class="map-section">
+                    <div class="card">
+                        <h2>🗺️ 지역별 현황</h2>
+
+                        <!-- NEW: 지도 탭 버튼 -->
+                        <div class="map-tabs" aria-label="지도 보기 전환">
+                            <button class="map-toggle-button active" data-map="select" type="button">동 선택</button>
+                            <button class="map-toggle-button" data-map="choropleth" type="button">지역별 빈도</button>
+                        </div>
+
+                        <!-- 기존 지도 (동 선택) -->
+                        <div id="map-select-wrapper">
+                            <svg id="map-container" width="100%" height="400"></svg>
+                        </div>
+
+                        <!-- NEW: Choropleth 지도 래퍼 -->
+                        <div id="map-choropleth-wrapper" style="display:none;">
+                            <svg id="map-choropleth" width="100%" height="400"></svg>
+                            <div id="choro-legend" class="choro-legend-wrapper">
+                                <div class="choro-legend-bar"></div>
+                                <div class="choro-legend-labels"><span>낮음</span><span>높음</span></div>
+                            </div>
+                        </div>
+
+                        <div class="map-info">
+                            <div>선택된 구 : <span id="selected-gu">없음</span></div>
+                            <div>선택된 동 : <span id="selected-dong">없음</span></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column -->
+            <div class="right-column">
+                <!-- Pie Chart Section -->
+                <div class="pie-section">
+                    <div class="card">
+                        <h2>📊 구별 불법주정차 현황</h2>
+                        <div class="pie-container">
+                            <canvas id="pieChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Table/Chart Tabs Section -->
+                <div class="tabs-section">
+                    <!-- Tabs -->
+                    <div class="tabs">
+                        <button class="tab-button active" data-tab="table-content">표</button>
+                        <button class="tab-button" data-tab="bar-content">막대그래프</button>
+                    </div>
+
+                    <!-- Tab Contents -->
+                    <div class="tab-content-container">
+                        <div class="tab-content" id="table-content" style="height:470px">
+                            <div class="card">
+                                <h2>📋 지역별 불법주정차 현황</h2>
+                                <div class="table-container">
+                                    <table>
+                                        <thead>
+                                            <tr>
+                                                <th>동</th>
+                                                <th>불법주정차 건수</th>
+                                                <th>비율</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="statsTableBody">
+                                            <tr>
+                                                <td colspan="3" class="loading">
+                                                    <div class="spinner"></div>
+                                                    데이터 로딩 중...
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="tab-content" id="bar-content" style="display:none; height:470px">
+                            <div class="card">
+                                <h2>📈 동별 불법주정차 상세현황</h2>
+                                <div class="bar-chart-content">
+                                    <div class="gu-selector" id="guSelector"></div>
+                                    <div class="bar-container">
+                                        <canvas id="barChart"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+    <script>
+        const chartColors = [
+        '#2563eb', '#dc2626', '#059669', '#d97706', '#7c3aed',
+        '#0891b2', '#be185d', '#65a30d', '#c2410c', '#4338ca'
+    ];
+
+    function extractGu(district) { return district.split(' ')[0] || '알 수 없음'; }
+    function extractDong(district) { return district.split(' ')[1] || '알 수 없음'; }
+
+    let pieChart = null;
+    let barChart = null;
+    let allData = [];
+    let rawAllData = []; // 원본 데이터 (날짜 정보 포함)
+    let originalPieData = [];
+    let currentSelectedGu = 'all';
+    let currentSelectedDong = null;
+    let currentPeriod = 'week';
+
+    // 날짜 필터링 함수
+    function filterDataByPeriod(data, period) {
+        if (period === 'all') return data;
+
+        const now = new Date();
+        let cutoffDate;
+
+        switch(period) {
+            case 'week':
+                cutoffDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+                break;
+            case 'month':
+                cutoffDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+                break;
+            case 'year':
+                cutoffDate = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
+                break;
+            default:
+                return data;
+        }
+
+        // 데이터가 created_at이나 timestamp 필드를 가지고 있다고 가정
+        return data.filter(item => {
+            const itemDate = new Date(item.created_at || item.timestamp || item.date);
+            return itemDate >= cutoffDate;
+        });
+    }
+
+    // 필터링된 데이터를 구/동별로 집계
+    function aggregateDataByDistrict(filteredRawData) {
+        const aggregated = {};
+
+        filteredRawData.forEach(item => {
+            const district = `${item.gu} ${item.dong}`;
+            if (!aggregated[district]) {
+                aggregated[district] = { district: district, count: 0 };
+            }
+            aggregated[district].count++;
+        });
+
+        return Object.values(aggregated).sort((a, b) => b.count - a.count);
+    }
+
+    // ===== 초기 데이터 로드 =====
+    async function loadGuList() {
+        try {
+            const res = await fetch('/api/illegal_parking/districts/');
+            const data = await res.json();
+            const gus = Array.from(new Set(data.map(d => extractGu(d))));
+            const guSelect = document.getElementById('guSelect');
+            guSelect.innerHTML = '<option value="all">전체 구</option>';
+            gus.forEach(gu => {
+                const option = document.createElement('option');
+                option.value = gu;
+                option.textContent = gu;
+                guSelect.appendChild(option);
+            });
+        } catch (error) {
+            console.error('구 목록 로드 실패:', error);
+        }
+    }
+
+    function updateSummaryStats(data, selectedGu = 'all') {
+        let filteredData = data;
+        if (selectedGu !== 'all') {
+            filteredData = data.filter(item => extractGu(item.district) === selectedGu);
+        }
+
+        const totalCount = filteredData.reduce((sum, item) => sum + item.count, 0);
+        const avgCount = filteredData.length > 0 ? Math.round((totalCount / filteredData.length) * 10) / 10 : 0;
+        const maxItem = filteredData.reduce((max, item) => item.count > max.count ? item : max, { count: 0, district: '-' });
+
+        document.getElementById('totalCount').textContent = totalCount.toLocaleString();
+        document.getElementById('avgCount').textContent = avgCount.toLocaleString();
+        document.getElementById('maxArea').textContent = extractDong(maxItem.district);
+    }
+
+    // ===== 수정된 데이터 로드 함수 =====
+    async function loadTable(period='week', gu='all', drawPie=false) {
+        try {
+            currentPeriod = period;
+
+            // 백엔드가 기간 필터링을 지원하는지 먼저 시도
+            let url = `/api/illegal_parking/stats/?period=${period}`;
+            let res = await fetch(url);
+            let data = await res.json();
+
+            // 백엔드가 기간 필터링을 지원하지 않는 경우 (데이터 형태 확인)
+            if (!data || data.length === 0 || !data[0].hasOwnProperty('district')) {
+                // 원본 데이터를 가져와서 프론트엔드에서 처리
+                url = '/api/illegal_parking/raw/'; // 또는 적절한 원본 데이터 엔드포인트
+                res = await fetch(url);
+                rawAllData = await res.json();
+
+                // 기간별로 필터링하고 집계
+                const filteredRawData = filterDataByPeriod(rawAllData, period);
+                data = aggregateDataByDistrict(filteredRawData);
+            }
+
+            allData = data;
+
+            // 화면에 표시할 데이터는 gu 필터링 적용
+            let filteredData = data;
+            if (gu !== 'all') {
+                filteredData = data.filter(item => extractGu(item.district) === gu);
+            }
+
+            currentSelectedGu = gu;
+
+            // 구별 파이차트 데이터 생성 (항상 전체 데이터 기준)
+            const guData = {};
+            allData.forEach(item => {
+                const guName = extractGu(item.district);
+                if (!guData[guName]) guData[guName] = 0;
+                guData[guName] += item.count;
+            });
+            originalPieData = Object.entries(guData)
+                .sort((a, b) => b[1] - a[1])
+                .map(([guName, count]) => ({ gu: guName, count }));
+
+            // 파이차트는 drawPie가 true일 때만 새로 그림
+            if (drawPie) createPieChart(originalPieData);
+
+            // 요약 통계는 항상 전체 기준
+            updateSummaryStats(allData, 'all');
+            updateGuSelector(originalPieData);
+            updateMapSelection(gu);
+
+            // 표와 막대차트는 선택된 구 기준
+            if (gu === 'all') {
+                renderTable(filteredData);
+                if (originalPieData.length > 0) createBarChart(originalPieData[0].gu);
+            } else {
+                renderTable(filteredData);
+                createBarChart(gu);
+            }
+
+            // Choropleth 색상 업데이트
+            updateChoroplethColors();
+
+        } catch (error) {
+            console.error('통계 데이터 로드 실패:', error);
+            const tbody = document.getElementById('statsTableBody');
+            tbody.innerHTML = '<tr><td colspan="3" class="empty-state">데이터 로드에 실패했습니다.</td></tr>';
+        }
+    }
+
+    // ===== 테이블 렌더링 =====
+    function renderTable(data, isDongSelected=false, highlightDong=null) {
+        const tbody = document.getElementById('statsTableBody');
+        tbody.innerHTML = '';
+        if(data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="3" class="empty-state">선택한 기간에 데이터가 없습니다.</td></tr>';
+            return;
+        }
+
+        const totalCount = data.reduce((sum, item) => sum + item.count, 0);
+
+        data.forEach(item => {
+            const dong = extractDong(item.district);
+            const percentage = totalCount > 0 ? ((item.count / totalCount) * 100).toFixed(1) : '0.0';
+
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td><strong>${dong}</strong></td>
+                <td class="count-cell">${item.count.toLocaleString()}건</td>
+                <td>${percentage}%</td>
+            `;
+
+            // 동 강조 (선택된 동이면 CSS class 추가)
+            if (highlightDong && dong === highlightDong) {
+                tr.classList.add('highlight-row');
+            }
+
+            tbody.appendChild(tr);
+        });
+    }
+
+    // ===== 파이차트 생성 (항상 전체 데이터 기준) =====
+    function createPieChart(guData) {
+        const ctx = document.getElementById('pieChart').getContext('2d');
+        if (pieChart) pieChart.destroy();
+
+        const guColorMap = {
+            '일산서구': '#0000cc',
+            '일산동구': '#cc0000',
+            '덕양구': '#00aa00'
+        };
+
+        const sortedGuData = guData.sort((a, b) => b.count - a.count);
+        const pieLabels = sortedGuData.map(item => item.gu);
+        const pieCounts = sortedGuData.map(item => item.count);
+        const pieColors = pieLabels.map(gu => guColorMap[gu]);
+
+        pieChart = new Chart(ctx, {
+            type: 'pie',
+            data: {
+                labels: pieLabels,
+                datasets: [{
+                    data: pieCounts,
+                    backgroundColor: pieColors,
+                    borderColor: 'rgba(255,255,255,0.2)',
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: false,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            color: '#cbd5e1',
+                            usePointStyle: true,
+                            padding: 10,
+                            generateLabels: function(chart) {
+                                const original = Chart.overrides.pie.plugins.legend.labels.generateLabels(chart);
+                                return original.reverse();
+                            }
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(26,31,41,0.95)',
+                        titleColor: '#f7f7f7',
+                        bodyColor: '#cbd5e1',
+                        borderColor: '#4f9cff',
+                        borderWidth: 1,
+                        callbacks: {
+                            label: function(ctx) {
+                                const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+                                const percent = ((ctx.raw / total) * 100).toFixed(1);
+                                return `${ctx.label}: ${ctx.raw.toLocaleString()}건 (${percent}%)`;
+                            }
+                        }
+                    }
+                },
+                onClick: (event, elements) => {
+                    if (elements.length > 0) {
+                        const selectedGuFromPie = pieLabels[elements[0].index];
+                        selectGuFromPieChart(selectedGuFromPie);
+                    }
+                }
+            }
+        });
+    }
+
+    function updateGuSelector(sortedGuData) {
+        const guSelector = document.getElementById('guSelector');
+        guSelector.innerHTML = '';
+        const activeGu = currentSelectedGu === 'all' ? sortedGuData[0]?.gu : currentSelectedGu;
+        sortedGuData.forEach((item) => {
+            const button = document.createElement('button');
+            button.className = `gu-button ${item.gu === activeGu ? 'active' : ''}`;
+            button.textContent = item.gu;
+            button.onclick = () => selectGuFromBarChart(item.gu, button);
+            guSelector.appendChild(button);
+        });
+    }
+
+    function createBarChart(selectedGu, highlightDong=null) {
+        const ctx = document.getElementById('barChart').getContext('2d');
+        if (barChart) barChart.destroy();
+
+        const dongData = allData
+            .filter(item => extractGu(item.district) === selectedGu)
+            .sort((a, b) => b.count - a.count);
+
+        const labels = dongData.map(item => extractDong(item.district));
+        const counts = dongData.map(item => item.count);
+
+        // 색상: 기본은 파란색, 강조 동은 빨간색
+        const backgroundColors = labels.map(dong =>
+            (highlightDong && dong === highlightDong) ? 'rgba(220,38,38,0.8)' : 'rgba(79,156,255,0.8)'
+        );
+        const borderColors = labels.map(dong =>
+            (highlightDong && dong === highlightDong) ? 'rgba(220,38,38,1)' : 'rgba(79,156,255,1)'
+        );
+
+        barChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels,
+                datasets: [{
+                    label: '불법주정차 건수',
+                    data: counts,
+                    backgroundColor: backgroundColors,
+                    borderColor: borderColors,
+                    borderWidth: 1,
+                    borderRadius: 4
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: {
+                        beginAtZero: true,
+                        ticks: { color: '#9ca3af', font: { size: 12 } },
+                        grid: { color: 'rgba(255,255,255,0.1)' }
+                    },
+                    y: {
+                        ticks: { color: '#9ca3af', font: { size: 12 } },
+                        grid: { display: false }
+                    }
+                },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: 'rgba(26,31,41,0.95)',
+                        titleColor: '#f7f7f7',
+                        bodyColor: '#cbd5e1',
+                        borderColor: '#4f9cff',
+                        borderWidth: 1,
+                        callbacks: { label: ctx => `${ctx.label}: ${ctx.raw.toLocaleString()}건` }
+                    }
+                }
+            }
+        });
+    }
+
+    // ===== 동 개별 선택 함수 =====
+    function selectDong(dongName, gu) {
+        currentSelectedDong = dongName;
+        currentSelectedGu = gu;
+        document.getElementById('guSelect').value = gu;
+        updateSummaryStats(allData, 'all');
+
+        document.querySelectorAll('.gu-button').forEach(btn => {
+            btn.classList.toggle('active', btn.textContent === gu);
+        });
+
+        const guData = allData.filter(item => extractGu(item.district) === gu);
+        const hasDong = guData.some(item => extractDong(item.district) === dongName);
+
+        renderTable(guData, false, hasDong ? dongName : null);
+        createBarChart(gu, hasDong ? dongName : null);
+    }
+
+    // ===== 구 선택 함수들 =====
+    function selectGuFromPieChart(selectedGu) {
+        currentSelectedDong = null;
+        document.getElementById('guSelect').value = selectedGu;
+        currentSelectedGu = selectedGu;
+        updateSummaryStats(allData, 'all');
+        updateMapSelection(selectedGu);
+        document.querySelectorAll('.gu-button').forEach(btn => {
+            btn.classList.toggle('active', btn.textContent === selectedGu);
+        });
+        const filteredData = allData.filter(item => extractGu(item.district) === selectedGu);
+        renderTable(filteredData);
+        createBarChart(selectedGu);
+        updateChoroplethColors();
+    }
+
+    function selectGuFromBarChart(selectedGu, buttonElement) {
+        currentSelectedDong = null;
+        document.getElementById('guSelect').value = selectedGu;
+        currentSelectedGu = selectedGu;
+        document.querySelectorAll('.gu-button').forEach(btn => btn.classList.remove('active'));
+        buttonElement.classList.add('active');
+        updateSummaryStats(allData, 'all');
+        updateMapSelection(selectedGu);
+        const filteredData = allData.filter(item => extractGu(item.district) === selectedGu);
+        renderTable(filteredData);
+        createBarChart(selectedGu);
+        updateChoroplethColors();
+    }
+
+    function selectGuFromSelectBox(selectedGu) {
+        currentSelectedDong = null;
+        currentSelectedGu = selectedGu;
+        updateSummaryStats(allData, 'all');
+        updateMapSelection(selectedGu);
+        if (selectedGu === 'all') {
+            const firstGu = originalPieData[0]?.gu;
+            if (firstGu) {
+                document.querySelectorAll('.gu-button').forEach(btn => {
+                    btn.classList.toggle('active', btn.textContent === firstGu);
+                });
+                createBarChart(firstGu);
+            }
+            renderTable(allData);
+        } else {
+            document.querySelectorAll('.gu-button').forEach(btn => {
+                btn.classList.toggle('active', btn.textContent === selectedGu);
+            });
+            const filteredData = allData.filter(item => extractGu(item.district) === selectedGu);
+            renderTable(filteredData);
+            createBarChart(selectedGu);
+        }
+        updateChoroplethColors();
+    }
+
+    // ===== 지도 관련 함수들 =====
+    function updateMapSelection(selectedGu) {
+        if (selectedGu === 'all') {
+            d3.select('#map-container').selectAll('path').classed('active', false);
+            document.getElementById('selected-gu').textContent = '없음';
+            document.getElementById('selected-dong').textContent = '없음';
+        } else {
+            if (!currentSelectedDong) {
+                d3.select('#map-container').selectAll('path').classed('active', function(d) {
+                    return d && d.properties && d.properties.gu === selectedGu;
+                });
+                document.getElementById('selected-gu').textContent = selectedGu;
+                document.getElementById('selected-dong').textContent = '전체';
+            }
+        }
+    }
+
+    function updateMapSelectionForDong(dongName, gu) {
+        d3.select('#map-container').selectAll('path').classed('active', false);
+        d3.select('#map-container').selectAll('path').classed('active', function(d) {
+            return d && d.properties && d.properties.A2 === dongName;
+        });
+        document.getElementById('selected-gu').textContent = gu;
+        document.getElementById('selected-dong').textContent = dongName;
+    }
+
+    // ===== D3 지도 로드 =====
+    const svg = d3.select('#map-container');
+    const mapContainer = document.querySelector('#map-container');
+    const width = mapContainer.clientWidth;
+    const height = 520;
+    svg.attr('width', width).attr('height', height);
+
+    const svgChoro = d3.select('#map-choropleth');
+    svgChoro.attr('width', width).attr('height', height);
+
+    d3.json('/static/geojson/goyang.geojson').then(data => {
+        const dongToGu = {
+            "주교동": "덕양구", "성사동": "덕양구", "원당동": "덕양구",
+            "신원동": "덕양구", "원흥동": "덕양구", "도내동": "덕양구",
+            "북한동": "덕양구", "효자동": "덕양구", "지축동": "덕양구",
+            "오금동": "덕양구", "삼송동": "덕양구", "동산동": "덕양구",
+            "용두동": "덕양구", "벽제동": "덕양구", "선유동": "덕양구",
+            "고양동": "덕양구", "대자동": "덕양구", "관산동": "덕양구",
+            "내유동": "덕양구", "토당동": "덕양구", "내곡동": "덕양구",
+            "대장동": "덕양구", "신평동": "덕양구", "화정동": "덕양구",
+            "행주내동": "덕양구", "행주외동": "덕양구", "행신동": "덕양구",
+            "강매동": "덕양구", "화전동": "덕양구", "덕은동": "덕양구",
+            "향동동": "덕양구", "현천동": "덕양구",
+            "설문동": "일산동구", "지영동": "일산동구", "성석동": "일산동구",
+            "문봉동": "일산동구", "사리현동": "일산동구", "중산동": "일산동구",
+            "식사동": "일산동구", "정발산동": "일산동구", "마두동": "일산동구",
+            "풍동": "일산동구", "장항동": "일산동구", "백석동": "일산동구",
+            "산황동": "일산동구",
+            "구산동": "일산서구", "가좌동": "일산서구", "덕이동": "일산서구",
+            "탄현동": "일산서구", "법곳동": "일산서구", "대화동": "일산서구",
+            "주엽동": "일산서구", "일산동": "일산서구"
+        };
+
+        data.features.forEach(f => {
+            const dong = f.properties.A2;
+            f.properties.gu = dongToGu[dong] || "기타";
+        });
+
+        const projection = d3.geoMercator().fitSize([width, height], data);
+        const path = d3.geoPath().projection(projection);
+
+        const dongOffset = {
+            "행주외동": {x: -15, y: 1},
+            "행주내동": {x: -19, y: -18},
+            "대장동": {x: -2, y: -12},
+            "지축동": {x: -5, y: 0},
+            "신평동": {x: 0, y: -3}
+        };
+
+        // 선택 지도 path
+        svg.selectAll('path')
+            .data(data.features)
+            .enter()
+            .append('path')
+            .attr('d', path)
+            .attr('class', d => {
+                if(d.properties.gu === '일산동구') return 'region ilsandonggu';
+                if(d.properties.gu === '덕양구') return 'region deogyanggu';
+                if(d.properties.gu === '일산서구') return 'region ilsanseogu';
+                return 'region';
+            })
+            .on('click', function(event, d) {
+                const dongName = d.properties.A2;
+                const gu = d.properties.gu;
+                selectDong(dongName, gu);
+                updateMapSelectionForDong(dongName, gu);
+            });
+
+        // 동 이름 표시
+        svg.selectAll('foreignObject')
+            .data(data.features)
+            .enter()
+            .append('foreignObject')
+            .attr('x', d => path.centroid(d)[0] + (dongOffset[d.properties.A2]?.x || -20))
+            .attr('y', d => path.centroid(d)[1] + (dongOffset[d.properties.A2]?.y || -10))
+            .attr('width', d => d.properties.A2.length * 10 + 10)
+            .attr('height', 20)
+            .append('xhtml:div')
+            .html(d => `<span class="dong-name">${d.properties.A2}</span>`)
+            .on('click', function(event, d) {
+                const dongName = d.properties.A2;
+                const gu = d.properties.gu;
+                selectDong(dongName, gu);
+                updateMapSelectionForDong(dongName, gu);
+            });
+
+        // Choropleth 지도 path
+        const pathChoro = d3.geoPath().projection(projection);
+
+            svgChoro.selectAll('path')
+                .data(data.features)
+                .enter()
+                .append('path')
+                .attr('d', pathChoro)
+                .attr('class', 'region choropleth')
+                .on('click', function(event, d) {
+                    const dongName = d.properties.A2;
+                    const gu = d.properties.gu;
+                    selectDong(dongName, gu);
+                    updateMapSelectionForDong(dongName, gu);
+                })
+
+            const tooltipGroup = svgChoro.append("g")
+                .attr("id", "svg-tooltip-group")
+                .style("pointer-events", "none")
+                .style("z-index", 9999);
+
+            const tooltipFo = tooltipGroup.append("foreignObject")
+                .attr("x", 0)
+                .attr("y", 0)
+                .attr("width", 120)
+                .attr("height", 30)
+                .style("display", "none");
+
+            const tooltipDiv = tooltipFo.append("xhtml:div")
+                .attr("id", "svg-tooltip")
+                .style("pointer-events", "none")
+                .style("background", "rgba(0, 0, 0, 0.6)")
+                .style("color", "white")
+                .style("font-size", "12px")
+                .style("border-radius", "6px")
+                .style("padding", "4px 8px")
+                .style("white-space", "nowrap")
+                .style("box-shadow", "0 4px 12px rgba(0,0,0,0.5)")
+                .style("font-weight", "600")
+                .style("user-select", "none")
+                .style("width", "120px")
+                .style("height", "30px")
+                .style("line-height", "22px")
+                .style("text-align", "center")
+                .style("box-sizing", "border-box")
+                .style("display", "flex")
+                .style("justify-content", "center")
+                .style("align-items", "center");
+
+            // 마우스 오버 이벤트
+            svgChoro.selectAll("path")
+                .on("mouseover", function(event, d) {
+                    d3.select(this)
+                    .transition().duration(100)
+                    .style("stroke-width", "3px");
+                    const [x, y] = pathChoro.centroid(d);
+
+                    tooltipFo
+                        .attr("x", x - 60)
+                        .attr("y", y - 40)
+                        .style("display", "block");
+
+                    tooltipDiv.html(`${d.properties.gu} ${d.properties.A2}`);
+
+                    d3.select(this).attr("stroke-width", 3);
+                })
+                .on("mouseout", function() {
+                    d3.select(this)
+                    .transition().duration(100)
+                    .style("stroke-width", "2px");
+                    tooltipFo.style("display", "none");
+                    d3.select(this).attr("stroke-width", 1);
+                });
+
+
+            // 초기 색채우기 (데이터 로드 전엔 연한색)
+            svgChoro.selectAll('path').style('fill', '#eaf3ff');
+
+        }).catch(error => { console.error('GeoJSON 불러오기 오류:', error); });
+
+        // Choropleth 색상 업데이트
+        function updateChoroplethColors() {
+            const paths = svgChoro.selectAll('path');
+            if (paths.empty()) return; // 지도 아직 안 그려진 경우
+
+            const maxCount = d3.max(allData, d => d.count) || 0;
+            const colorScale = d3.scaleLinear().domain([0, maxCount]).range(['#cce5ff', '#003366']);
+            const countsByDong = new Map(allData.map(item => [extractDong(item.district), item.count]));
+
+            paths
+            .transition().duration(350)
+            .style('fill', d => {
+                const val = countsByDong.get(d.properties.A2);
+                return (val != null) ? colorScale(val) : '#eee';
+            })
+            .style('fill-opacity', 0.9)
+            .style('stroke', '#004c80')
+            .style('stroke-width', 1);
+
+            // 범례 업데이트 및 표시 상태 동기화
+            const legend = document.getElementById('choro-legend');
+            if (legend) {
+                legend.style.display = document.getElementById('map-choropleth-wrapper').style.display === 'none' ? 'none' : 'block';
+                legend.innerHTML = `
+                    <div class="choro-legend-bar"></div>
+                    <div class="choro-legend-labels"><span>0</span><span>${maxCount.toLocaleString()}건</span></div>
+                `;
+            }
+        }
+
+        // 지도 보기 전환 버튼
+        document.querySelectorAll('.map-toggle-button').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.map-toggle-button').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                const type = btn.dataset.map;
+                if (type === 'choropleth') {
+                    document.getElementById('map-select-wrapper').style.display = 'none';
+                    document.getElementById('map-choropleth-wrapper').style.display = 'block';
+                    updateChoroplethColors();
+                } else {
+                    document.getElementById('map-select-wrapper').style.display = 'block';
+                    document.getElementById('map-choropleth-wrapper').style.display = 'none';
+                }
+            });
+        });
+
+        // ===== 수정된 페이지 로딩 =====
+        window.onload = async () => {
+            await loadGuList();
+
+            const periodSelect = document.getElementById('periodSelect');
+            const guSelect = document.getElementById('guSelect');
+
+            // 전체 데이터 불러오기 (파이차트 생성 포함)
+            await loadTable(periodSelect.value, 'all', true);
+
+            // 수정된 기간 선택 이벤트 - 파이차트도 함께 업데이트
+            periodSelect.addEventListener('change', async () => {
+                const selectedPeriod = periodSelect.value;
+                const selectedGu = guSelect.value;
+
+                // 기간이 변경되면 파이차트도 새로 생성
+                await loadTable(selectedPeriod, selectedGu, true);
+            });
+
+            // 구 선택 이벤트
+            guSelect.addEventListener('change', () => {
+                const selectedGu = guSelect.value;
+                selectGuFromSelectBox(selectedGu);
+
+                // 기간은 그대로 두고 구만 변경
+                loadTable(currentPeriod, selectedGu);
+            });
+        };
+
+        // ===== 탭 기능 (오른쪽 표/그래프) =====
+        const tabButtons = document.querySelectorAll('.tab-button');
+        const tabContents = document.querySelectorAll('.tab-content');
+        tabButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const target = btn.dataset.tab;
+                tabButtons.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                tabContents.forEach(content => {
+                    content.style.display = (content.id === target) ? 'block' : 'none';
+                });
+            });
+        });
+        </script>
+</body>
+</html>
