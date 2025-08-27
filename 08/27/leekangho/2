@@ -1,77 +1,117 @@
+// 범칙금 안내 팝업
+let fineOverlay = null;
+
 function placeRandomOnRoad() {
-      if (!isAuthenticated) { alert('로그인이 필요한 서비스입니다.'); return; }
-      if (!roadLines.length) { alert('도로 데이터가 아직 준비되지 않았습니다.'); return; }
-      if (carMarker) { carMarker.setMap(null); carMarker = null; }
-      if (infoWindow) { infoWindow.setMap(null); infoWindow = null; }
-      parkingMarkers.forEach(m => m.setMap(null)); parkingMarkers.length = 0;
+  if (!isAuthenticated) { alert('로그인이 필요한 서비스입니다.'); return; }
+  if (!roadLines.length) { alert('도로 데이터가 아직 준비되지 않았습니다.'); return; }
 
-      const line = roadLines[Math.floor(Math.random() * roadLines.length)];
-      const dist = Math.random() * turf.length(line, { units: 'kilometers' });
-      const pt = turf.along(line, dist, { units: 'kilometers' });
-      const [lon, lat] = pt.geometry.coordinates;
-      carMarker = new kakao.maps.Marker({ map, position: new kakao.maps.LatLng(lat, lon) });
-      map.setCenter(new kakao.maps.LatLng(lat, lon));
-      currentCarLocation = [lat, lon];
+  // 기존 요소 정리
+  if (carMarker) { carMarker.setMap(null); carMarker = null; }
+  if (infoWindow) { infoWindow.setMap(null); infoWindow = null; }
+  parkingMarkers.forEach(m => m.setMap(null));
+  parkingMarkers.length = 0;
 
-      const illegal = isIllegalParkingArea(lat, lon);
-      const msg = illegal
-      ? `🚫 불법 주정차 구역입니다.<br>
-         <span style="font-size:12px; color:#555;">※ 범칙금 안내 (클릭)</span>`
-      : "✅ 불법 주정차 구역이 아닙니다.";
+  // 기존 범칙금 안내 팝업 닫기
+  if (fineOverlay) { fineOverlay.setMap(null); fineOverlay = null; }
 
+  const line = roadLines[Math.floor(Math.random() * roadLines.length)];
+  const dist = Math.random() * turf.length(line, { units: 'kilometers' });
+  const pt = turf.along(line, dist, { units: 'kilometers' });
+  const [lon, lat] = pt.geometry.coordinates;
 
-      infoWindow = new kakao.maps.CustomOverlay({
-        content: `<div id="illegalMsgBox"
-                      style="padding:12px;font-size:16px;font-weight:bold;min-width:220px;text-align:center;
-                             background:#fff; border:2px solid ${illegal?'#dc3545':'#28a745'};
-                             border-radius:8px;box-shadow:0 2px 6px rgba(0,0,0,0.2);
-                             color:${illegal?'#dc3545':'#28a745'}; cursor:${illegal?'pointer':'default'}">
-                    ${msg}
-                  </div>`,
-        position: new kakao.maps.LatLng(lat, lon),
-        yAnchor: 1.8, zIndex: 99
-      });
-      infoWindow.setMap(map);
+  carMarker = new kakao.maps.Marker({ map, position: new kakao.maps.LatLng(lat, lon) });
+  map.setCenter(new kakao.maps.LatLng(lat, lon));
+  currentCarLocation = [lat, lon];
 
-      // 불법 주정차일 경우 클릭 이벤트 추가
-      if (illegal) {
-        recordIllegalParking(lat, lon);
-        showNearbyParkingLots(lat, lon);
+  const illegal = isIllegalParkingArea(lat, lon);
+  const msg = illegal
+    ? `🚫 불법 주정차 구역입니다.<br>
+       <span style="font-size:12px; color:#555;">※ 범칙금 안내 (클릭)</span>`
+    : "✅ 불법 주정차 구역이 아닙니다.";
 
-        // 근처 주차장 필터링
-        const center = turf.point([lon, lat]);
-        const nearby = parkingLots.filter(lot =>
-          turf.distance(center, turf.point([lot.longitude, lot.latitude]), { units: 'kilometers' }) <= nearByParkingLotsDistance
-        );
-        renderParkingList(nearby);
+  infoWindow = new kakao.maps.CustomOverlay({
+    content: `<div id="illegalMsgBox"
+                  style="padding:12px;font-size:16px;font-weight:bold;min-width:220px;text-align:center;
+                         background:#fff; border:2px solid ${illegal?'#dc3545':'#28a745'};
+                         border-radius:8px;box-shadow:0 2px 6px rgba(0,0,0,0.2);
+                         color:${illegal?'#dc3545':'#28a745'}; cursor:${illegal?'pointer':'default'}">
+                ${msg}
+              </div>`,
+    position: new kakao.maps.LatLng(lat, lon),
+    yAnchor: 1.8, zIndex: 99
+  });
+  infoWindow.setMap(map);
 
-        // 클릭 시 범칙금 안내 오버레이 띄우기
-        setTimeout(() => {  // DOM 렌더 후 실행
-          const msgBox = document.getElementById('illegalMsgBox');
-          if (msgBox) {
-            msgBox.addEventListener('click', () => {
-              const fineOverlay = new kakao.maps.CustomOverlay({
-                content: `
-                  <div style="background:white; border:2px solid #dc3545; border-radius:6px;
-                              padding:10px; font-size:14px; color:#333; min-width:220px; box-shadow:0 2px 6px rgba(0,0,0,0.3);">
-                    <strong style="color:#dc3545;">불법 주정차 범칙금 안내</strong><br>
-                    · 일반지역 : <b>승용차 4만원, 승합차 5만원</b><br>
-                    · 특별구역 : <b>소방시설 주변 8만원, 어린이보호구역 12만원</b><br>
-                    <span style="font-size:12px; color:#555;">※ 지역·상황에 따라 달라질 수 있습니다.</span>
-                  </div>
-                `,
-                position: new kakao.maps.LatLng(lat, lon),
-                yAnchor: 2.8,
-                zIndex: 200
-              });
-              fineOverlay.setMap(map);
+  if (illegal) {
+    recordIllegalParking(lat, lon);
+    showNearbyParkingLots(lat, lon);
 
-              // 10초 뒤 자동 닫기
-              setTimeout(() => fineOverlay.setMap(null), 10000);
-            });
-          }
-        }, 100);
-      } else {
-        renderParkingList();
+    const center = turf.point([lon, lat]);
+    const nearby = parkingLots.filter(lot =>
+      turf.distance(center, turf.point([lot.longitude, lot.latitude]), { units: 'kilometers' }) <= nearByParkingLotsDistance
+    );
+    renderParkingList(nearby);
+
+    setTimeout(() => {
+      const msgBox = document.getElementById('illegalMsgBox');
+      if (msgBox) {
+        msgBox.addEventListener('click', () => {
+          // 클릭 전에 기존 팝업 닫기
+          if (fineOverlay) { fineOverlay.setMap(null); fineOverlay = null; }
+
+          fineOverlay = new kakao.maps.CustomOverlay({
+            content: `
+              <div style="background:white; border:2px solid #dc3545; border-radius:6px;
+                          padding:10px; font-size:14px; color:#333; min-width:220px; box-shadow:0 2px 6px rgba(0,0,0,0.3);">
+                <strong style="color:#dc3545;">불법 주정차 범칙금 안내</strong><br>
+                · 일반지역 : <b>승용차 4만원, 승합차 5만원</b><br>
+                · 특별구역 : <b>소방시설 주변 8만원, 어린이보호구역 12만원</b><br>
+                <span style="font-size:12px; color:#555;">※ 지역·상황에 따라 달라질 수 있습니다.</span>
+              </div>
+            `,
+            position: new kakao.maps.LatLng(lat, lon),
+            yAnchor: 2.8,
+            zIndex: 200
+          });
+          fineOverlay.setMap(map);
+
+          setTimeout(() => {
+            if (fineOverlay) { fineOverlay.setMap(null); fineOverlay = null; }
+          }, 10000);
+        });
       }
-    }
+    }, 100);
+  } else {
+    renderParkingList();
+  }
+}
+
+// 주·정차 취소 버튼
+function clearMarkers() {
+  if (!isAuthenticated) { alert('로그인이 필요한 서비스입니다.'); return; }
+
+  if (carMarker) { carMarker.setMap(null); carMarker = null; }
+  parkingMarkers.forEach(m => m.setMap(null));
+  parkingMarkers.length = 0;
+  renderParkingList();
+  if (infoWindow) { infoWindow.setMap(null); infoWindow = null; }
+
+  // 팝업 닫기
+  if (fineOverlay) { fineOverlay.setMap(null); fineOverlay = null; }
+}
+
+
+// 주·정차 취소 버튼
+function clearMarkers() {
+  if (!isAuthenticated) { alert('로그인이 필요한 서비스입니다.'); return; }
+
+  if (carMarker) { carMarker.setMap(null); carMarker = null; }
+  parkingMarkers.forEach(m => m.setMap(null));
+  parkingMarkers.length = 0;
+  renderParkingList();
+  if (infoWindow) { infoWindow.setMap(null); infoWindow = null; }
+  
+
+  // 기존 범칙금 안내 팝업 닫기
+  if (fineOverlay) { fineOverlay.setMap(null); fineOverlay = null; }
+}
