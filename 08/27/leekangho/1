@@ -1,0 +1,1104 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>불법 주정차 구역 안내 서비스</title>
+  <style>
+    html, body {
+      height: 100%;
+      margin: 0; padding: 0;
+      font-family: Arial, sans-serif;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    /* 상단 배너 스타일 */
+    #header {
+      height: 60px;
+      background: #004c99;
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 20px;
+      box-sizing: border-box;
+      flex-shrink: 0;
+    }
+    #header h1 { margin: 0; font-size: 20px; }
+    #header button {
+      background: #007bff;
+      border: none;
+      color: white;
+      padding: 6px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    #header button:hover { background: #0056b3; }
+
+    /* 좌우 콘텐츠 레이아웃 */
+    #container {
+      flex: 1;
+      display: flex;
+      height: calc(100% - 60px);
+    }
+    /* 좌측 리스트 영역 */
+    #parkingList {
+      width: 300px;
+      border-right: 1px solid #ddd;
+      box-sizing: border-box;
+      padding: 15px;
+      overflow-y: auto;
+      background: #f9f9f9;
+    }
+    #parkingList h2 { margin-top: 0; font-size: 18px; margin-bottom: 6px; color: #333; }
+
+    #sortSelect, #distanceSelect {
+      margin-bottom: 12px;
+      width: 100%;
+      padding: 5px;
+      font-size: 14px;
+    }
+    #parkingUl { list-style: none; padding-left: 0; margin: 0; }
+    #parkingUl li {
+      padding: 8px 10px;
+      border-radius: 4px;
+      margin-bottom: 6px;
+      background: white;
+      border: 1px solid #ccc;
+      transition: background-color 0.2s;
+    }
+    #parkingUl li:hover { background-color: #e6f0ff; border-color: #007bff; }
+
+    /* 우측 지도 영역 */
+    #mapContainer {
+      flex: 1;
+      position: relative;
+      background: #eee;
+      display: flex;
+      flex-direction: column;
+    }
+    #map { flex: 1; position: relative; }
+
+    button#placeCarBtn,
+    button#clearBtn {
+      position: absolute;
+      top: 10px;
+      z-index: 100;
+      padding: 6px 12px;
+      font-size: 14px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      background-color: #007bff;
+      color: white;
+      user-select: none;
+      transition: background-color 0.2s;
+    }
+    button#placeCarBtn:hover,
+    button#clearBtn:hover { background-color: #0056b3; }
+    button#placeCarBtn { left: 10px; }
+    button#clearBtn { left: 120px; }
+
+    /* 로딩 오버레이 */
+    #loadingOverlay {
+      position: absolute; top: 0; left: 0;
+      width: 100%; height: 100%;
+      background-color: rgba(255, 255, 255, 0.7);
+      z-index: 50;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px; font-weight: bold; color: #444;
+      user-select: none;
+    }
+
+    /* 모달 스타일 */
+    .modal {
+      display: none;
+      position: fixed; z-index: 200;
+      left: 0; top: 0;
+      width: 100%; height: 100%;
+      background-color: rgba(0,0,0,0.4);
+    }
+    .modal-content {
+      background-color: #fff;
+      margin: 10% auto;
+      padding: 20px;
+      border: 1px solid #888;
+      width: 400px;
+      border-radius: 5px;
+      position: relative;
+    }
+    .close {
+      position: absolute;
+      top: 10px; right: 15px;
+      color: #aaa;
+      font-size: 24px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    .close:hover { color: #000; }
+
+    .modal-content input[type=text],
+    .modal-content input[type=password],
+    .modal-content input[type=email] {
+      width: 100%;
+      padding: 6px;
+      margin: 4px 0 10px;
+      box-sizing: border-box;
+    }
+
+    .customoverlay-box {
+      background: white;
+      border: 1px solid #333;
+      border-radius: 5px;
+      padding: 8px 10px;
+      font-size: 13px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+      white-space: nowrap;
+    }
+
+    .customoverlay-content strong {
+      display: block;
+      margin-bottom: 4px;
+      font-weight: bold;
+      color: #2a2a2a;
+    }
+
+  </style>
+
+  <!-- 라이브러리 로딩 -->
+  <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=f4c124856678656d1b266147d1cb459e&autoload=false"></script>
+  <script src="https://unpkg.com/@turf/turf/turf.min.js"></script>
+</head>
+<body>
+
+  <!-- Django 메시지 표시 영역 -->
+  {% if messages %}
+  <div id="django-messages" style="
+      position: fixed;
+      top: 70px;
+      right: 20px;
+      z-index: 10000;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+  ">
+    {% for message in messages %}
+      <div class="message-box" style="
+        padding: 10px 15px;
+        border-radius: 6px;
+        color: white;
+        min-width: 220px;
+        font-weight: bold;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+        opacity: 0;
+        transform: translateY(-10px);
+        transition: opacity 0.5s, transform 0.5s;
+        background:
+          {% if message.tags == 'success' %}#28a745
+          {% elif message.tags == 'error' %}#dc3545
+          {% else %}#007bff{% endif %};
+      ">
+        {{ message }}
+      </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <!-- 상단 Header -->
+  <div id="header">
+    <h1>불법 주정차 구역 안내 서비스</h1>
+    <div id="userControls">
+      {% if user.is_authenticated %}
+        <span>안녕하세요, {{ user.username }}님</span>
+        <button onclick="location.href='/illegal_parking_stats/'">통계 보기</button>
+        <button onclick="openModal('profileModal')"
+          style="padding:6px 12px; background:#007bff; color:#fff; border:none; border-radius:4px; cursor:pointer;">
+            마이페이지
+        </button>
+        <form method="POST" action="{% url 'accounts:logout' %}" style="display:inline;">
+          {% csrf_token %}
+          <button type="submit" style="padding:6px 12px; background:#dc3545; color:#fff; border:none; border-radius:4px; cursor:pointer;">
+            로그아웃
+          </button>
+        </form>
+      {% else %}
+        <button onclick="openModal('loginModal')">로그인</button>
+        <button onclick="openModal('signupModal')">회원가입</button>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- 좌우 콘텐츠 영역 -->
+  <div id="container">
+    <div id="parkingList">
+      <h2>주차장 리스트</h2>
+      <br>
+      <select id="distanceSelect" onchange="lotsDistanceChange()">
+        <option value="1">::: 검색 반경을 설정하세요 :::</option>
+        <option value="0.5">500m</option>
+        <option value="1">1Km (기본)</option>
+        <option value="1.5">1.5Km</option>
+        <option value="2">2Km</option>
+        <option value="2.5">2.5Km</option>
+        <option value="3">3Km</option>
+      </select>
+      <br>
+      <select id="sortSelect" onchange="handleSortChange()">
+        <option value="name">::: 정렬 방식을 선택하세요 :::</option>
+        <option value="name">이름순</option>
+        <option value="distance">거리순</option>
+      </select>
+      <label style="display:block; margin: 5px 0px 10px;">
+        <input type="checkbox" id="freeOnlyCheckbox" onchange="handleFreeFilterChange()"> 무료 주차장만 보기
+      </label>
+
+      <ul id="parkingUl"></ul>
+    </div>
+    <div id="mapContainer">
+      <div id="map">
+        <div id="loadingOverlay">🛣 도로 데이터를 불러오는 중입니다...</div>
+      </div>
+      <button id="placeCarBtn" onclick="placeRandomOnRoad()">차량 주·정차</button>
+      <button id="clearBtn" onclick="clearMarkers()">주·정차 취소</button>
+    </div>
+  </div>
+
+  <!-- 주차장 상세 모달 -->
+  <div id="parkingModal" class="modal">
+    <div class="modal-content">
+      <span class="close" onclick="closeParkingModal()">&times;</span>
+      <div id="parkingModalBody"></div>
+    </div>
+  </div>
+
+  <!-- 로그인 모달 -->
+  <div id="loginModal" class="modal">
+    <div class="modal-content">
+      <span class="close" onclick="closeModal('loginModal')">&times;</span>
+      <h2>로그인</h2>
+      <form method="POST" action="{% url 'accounts:login' %}">
+        {% csrf_token %}
+        <label for="login-username">아이디:</label><br>
+        <input type="text" id="login-username" name="username" required><br>
+        <label for="login-password">비밀번호:</label><br>
+        <input type="password" id="login-password" name="password" required><br>
+        <button type="submit" style="padding:6px 12px; background:#007bff; color:#fff; border:none; border-radius:4px; cursor:pointer;">로그인</button>
+        <button type="button" onclick="openModal('findIdModal'); closeModal('loginModal');"
+          style="padding:6px 12px; margin-left:10px; background:#ffc107; color:#fff; border:none; border-radius:4px; cursor:pointer;">
+          아이디 찾기
+        </button>
+        <button type="button" onclick="openModal('resetModal'); closeModal('loginModal');"
+        style="padding:6px 12px; margin-left:10px; background:#17a2b8; color:#fff; border:none; border-radius:4px; cursor:pointer;">
+        비밀번호 재설정
+        </button>
+      </form>
+
+
+
+    </div>
+  </div>
+
+  <!-- 회원가입 모달 -->
+  <div id="signupModal" class="modal">
+    <div class="modal-content">
+      <span class="close" onclick="closeModal('signupModal')">&times;</span>
+      <h2>회원가입</h2>
+      <form id="signupForm" method="POST" action="{% url 'accounts:signup' %}">
+        {% csrf_token %}
+
+        <label for="signup-username">아이디:</label><br>
+        <input type="text" id="signup-username" name="username" required>
+        <span class="error" id="error-username" style="color:red; font-size:0.9em;"></span><br>
+
+        <label for="signup-full_name">이름:</label><br>
+        <input type="text" id="signup-full_name" name="full_name" required><br>
+
+        <label for="signup-phone_number">핸드폰 번호:</label><br>
+        <input type="text" id="signup-phone_number" name="phone_number" required><br>
+
+        <label for="signup-car_number">차량 번호:</label><br>
+        <input type="text" id="signup-car_number" name="car_number" required><br>
+
+        <label for="signup-email">이메일:</label><br>
+        <input type="email" id="signup-email" name="email" required
+               placeholder="이메일 형식 ex) User@domain.com 와 같은 형식을 지켜주세요">
+        <span class="error" id="error-email" style="color:red; font-size:0.9em;"></span><br>
+
+        <label for="signup-password1">비밀번호:</label><br>
+        <input type="password" id="signup-password1" name="password1" required
+                     placeholder="연속되지 않은 영문 숫자 조합 8자리 이상으로 설정해 주세요 ">
+        <span class="error" id="error-password1" style="color:red; font-size:0.9em;"></span><br>
+
+        <label for="signup-password2">비밀번호 확인:</label><br>
+        <input type="password" id="signup-password2" name="password2" required>
+        <span class="error" id="error-password2" style="color:red; font-size:0.9em;"></span><br>
+
+        <button type="submit" style="padding:6px 12px; background:#28a745; color:#fff; border:none; border-radius:4px; cursor:pointer;">
+          회원가입
+        </button>
+      </form>
+    </div>
+  </div>
+
+
+  <!-- 마이페이지 모달 -->
+  <div id="profileModal" class="modal">
+    <div class="modal-content">
+      <span class="close" onclick="closeModal('profileModal')">&times;</span>
+      <h2>마이페이지</h2>
+
+      <form id="profileForm" method="POST" action="{% url 'accounts:update_profile' %}">
+        {% csrf_token %}
+
+        <label for="profile-username">아이디:</label><br>
+        <input type="text" id="profile-username" name="username" value="{{ user.username }}" disabled><br>
+
+        <label for="profile-full_name">이름:</label><br>
+        <input type="text" id="profile-full_name" name="full_name" value="{{ user.full_name }}" disabled><br>
+
+        <label for="profile-phone_number">핸드폰 번호:</label><br>
+        <input type="text" id="profile-phone_number" name="phone_number" value="{{ user.phone_number }}" required>
+        <span class="error" id="error-phone_number" style="color:red; font-size:0.9em;"></span><br>
+
+        <label for="profile-car_number">차량 번호:</label><br>
+        <input type="text" id="profile-car_number" name="car_number" value="{{ user.car_number }}" required><br>
+
+        <label for="profile-email">이메일:</label><br>
+        <input type="email" id="profile-email" name="email" value="{{ user.email }}" required>
+        <span class="error" id="profile-error-email" style="color:red; font-size:0.9em;"></span><br>
+
+        <div id="profileMessages" style="margin-top:10px; color:red;"></div>
+      </form>
+
+
+      <div style="display:flex; gap:10px; margin-top:10px; flex-wrap:wrap;">
+        <!-- 정보 수정 버튼 -->
+        <button type="submit" form="profileForm"
+                style="padding:6px 12px; background:#28a745; color:#fff; border:none; border-radius:4px; cursor:pointer;">
+          정보 수정
+        </button>
+
+        <!-- 비밀번호 변경 버튼 -->
+        <button type="button" onclick="openModal('changePasswordModal'); closeModal('profileModal');"
+                style="padding:6px 12px; background:#ffc107; color:#fff; border:none; border-radius:4px; cursor:pointer;">
+          비밀번호 변경
+        </button>
+
+        <!-- 회원 탈퇴 버튼 -->
+        <button type="submit" form="deleteForm"
+                style="padding:6px 12px; background:#dc3545; color:#fff; border:none; border-radius:4px; cursor:pointer;">
+          회원 탈퇴
+        </button>
+      </div>
+
+      <!-- 회원 탈퇴 form  -->
+      <form id="deleteForm" method="POST" action="{% url 'accounts:delete_account' %}">
+        {% csrf_token %}
+      </form>
+    </div>
+  </div>
+
+ <!-- 비밀번호 변경 모달 -->
+  <div id="changePasswordModal" class="modal">
+    <div class="modal-content">
+      <span class="close" onclick="closeModal('changePasswordModal')">&times;</span>
+      <h2>비밀번호 변경</h2>
+
+      <!-- 메시지 출력 -->
+      <ul id="passwordMessages" style="margin-bottom:10px;"></ul>
+
+      <form id="passwordForm" method="POST" action="{% url 'accounts:change_password' %}">
+        {% csrf_token %}
+        <label>현재 비밀번호:</label><br>
+        <input type="password" name="old_password" required><br>
+
+        <label>새 비밀번호:</label><br>
+        <input type="password" name="new_password1" required><br>
+
+        <label>새 비밀번호 확인:</label><br>
+        <input type="password" name="new_password2" required><br>
+
+        <button type="submit" style="padding:6px 12px; background:#28a745; color:#fff; border:none; border-radius:4px; cursor:pointer; margin-top:10px;">
+          변경
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- 아이디 찾기 모달  -->
+  <div id="findIdModal" class="modal">
+    <div class="modal-content">
+      <span class="close" onclick="closeModal('findIdModal')">&times;</span>
+      <h2>아이디 찾기</h2>
+      <form id="findIdForm" method="POST" action="{% url 'accounts:find_id' %}">
+        {% csrf_token %}
+        <label for="find-name">이름:</label><br>
+        <input type="text" id="find-name" name="name" required><br>
+
+        <label for="find-email">가입 시 사용한 이메일:</label><br>
+        <input type="email" id="find-email" name="email" required><br>
+
+        <button type="submit">아이디 찾기</button>
+      </form>
+      <div id="findIdResult" style="margin-top:10px; color:blue;"></div>
+    </div>
+  </div>
+
+  <!-- 비밀번호 재설정 모달 -->
+  <div id="resetModal" class="modal">
+    <div class="modal-content">
+      <span class="close" onclick="closeModal('resetModal')">&times;</span>
+      <h2>비밀번호 재설정</h2>
+      <form id="resetPasswordForm" method="POST" action="{% url 'accounts:reset_password_request' %}">
+        {% csrf_token %}
+        <label for="reset-email">이메일:</label><br>
+        <input type="email" id="reset-email" name="email" required><br>
+        <button type="submit" style="padding:6px 12px; background:#007bff; color:#fff; border:none; border-radius:4px; cursor:pointer;">링크 발송</button>
+      </form>
+      <div id="reset-password-msg"></div>
+    </div>
+  </div>
+
+  <script>
+    let map, carMarker = null, infoWindow = null;
+    const parkingMarkers = [], roadLines = [];
+    let parkingLots = [], trafficCameras = [], realtimeParkingLots = [];
+    let currentCarLocation = null, currentVisibleLots = [];
+    const isAuthenticated = {{ user.is_authenticated|yesno:"true,false" }};
+    let nearByParkingLotsDistance = 1;
+    let showFreeOnly = false;
+
+    async function loadParkingData() {
+      try {
+        const res = await fetch('/api/parking-lots/');
+        parkingLots = await res.json();
+      } catch {
+        parkingLots = [];
+      }
+    }
+
+    async function loadCameraData() {
+      try {
+        const res = await fetch('/api/traffic-cameras/');
+        trafficCameras = await res.json();
+      } catch {
+        trafficCameras = [];
+      }
+    }
+
+    async function loadRealtimeParkingData() {
+      try {
+        const res = await fetch('/api/realtime_parking/');
+        const data = await res.json();
+        realtimeParkingLots = data;
+      } catch (e) {
+        realtimeParkingLots = [];
+      }
+    }
+
+    window.onload = async () => {
+      await loadParkingData();
+      await loadCameraData();
+      await loadRealtimeParkingData();
+      loadMap();
+    };
+
+    function loadMap() {
+      kakao.maps.load(async () => {
+        map = new kakao.maps.Map(document.getElementById('map'), {
+          center: new kakao.maps.LatLng(37.658218, 126.832030),
+          level: 3
+        });
+        await loadRoadData();
+        renderParkingList();
+        document.getElementById('loadingOverlay').style.display = 'none';
+      });
+    }
+
+    async function loadRoadData() {
+      const url = `https://overpass-api.de/api/interpreter?data=[out:json][timeout:25];
+        relation(2409166);
+        map_to_area->.searchArea;
+        (way["highway"~"motorway|trunk|primary|secondary|tertiary|residential|unclassified|service"](area.searchArea););
+        out geom;`;
+      try {
+        const res = await fetch(url);
+        const data = await res.json();
+        data.elements.forEach(el => {
+          if (el.type === 'way' && el.geometry) {
+            const coords = el.geometry.map(p => [p.lon, p.lat]);
+            roadLines.push(turf.lineString(coords));
+          }
+        });
+      } catch {}
+    }
+
+    async function recordIllegalParking(lat, lon) {
+      try {
+          // 차량 위치 포인트
+          const carPt = turf.point([lon, lat]);
+
+          // 차량 근처 100m 이내 CCTV 찾기
+          const nearbyCams = trafficCameras.filter(c =>
+              turf.distance(carPt, turf.point([c.longitude, c.latitude]), { units: 'kilometers' }) <= 0.1
+          );
+
+          if (!nearbyCams.length) {
+              console.warn('근처 CCTV 없음. 기록 건너뜀.');
+              return;
+          }
+
+          const camAddress = nearbyCams[0].address;
+          if (!camAddress || typeof camAddress !== 'string') {
+              console.warn('CCTV 주소 정보 없음. 기록 건너뜀.');
+              return;
+          }
+
+          // 구·동 추출
+          const guMatch = camAddress.match(/([가-힣]+구)/);
+          const dongMatch = camAddress.match(/([가-힣]+동)(?!구)/g);
+
+          if (!guMatch || !dongMatch || dongMatch.length === 0) {
+              console.warn('구 또는 동 추출 실패. 기록 건너뜀.');
+              return;
+          }
+
+          const gu = guMatch[0];
+          const dong = dongMatch[dongMatch.length - 1];
+
+          console.log('기록할 district:', gu, dong);
+
+          // DB에 기록
+          const response = await fetch('/api/illegal_parking/', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ gu, dong })
+          });
+
+          if (response.ok) {
+              console.log('불법주차 기록됨:', gu, dong);
+          } else {
+              console.error('불법주차 기록 실패:', response.status);
+          }
+
+      } catch (e) {
+          console.error('불법주차 기록 오류:', e);
+      }
+    }
+
+    function renderParkingList(filteredLots = null) {
+      const ul = document.getElementById('parkingUl');
+      ul.innerHTML = '';
+      let listToShow = filteredLots ?? parkingLots;
+
+      if (showFreeOnly) {
+        listToShow = listToShow.filter(lot => lot.fee_type === '무료');
+      }
+
+      currentVisibleLots = listToShow;
+      handleSortChange();
+    }
+
+
+    function handleSortChange() {
+      const sortType = document.getElementById('sortSelect').value;
+      let sorted = [...currentVisibleLots];
+      if (sortType === 'name') {
+        sorted.sort((a, b) => a.name.localeCompare(b.name));
+      } else if (sortType === 'distance' && currentCarLocation) {
+        const carPt = turf.point([currentCarLocation[1], currentCarLocation[0]]);
+        sorted.sort((a, b) => {
+          const da = turf.distance(carPt, turf.point([a.longitude, a.latitude]), { units: 'kilometers' });
+          const db = turf.distance(carPt, turf.point([b.longitude, b.latitude]), { units: 'kilometers' });
+          return da - db;
+        });
+      }
+      const ul = document.getElementById('parkingUl');
+      ul.innerHTML = '';
+      if (!sorted.length) {
+        const li = document.createElement('li');
+        li.textContent = '주변에 주차장이 존재하지 않습니다.';
+        li.style.color = '#888';
+        li.style.fontStyle = 'italic';
+        ul.appendChild(li);
+        return;
+      }
+      sorted.forEach(lot => {
+        const li = document.createElement('li');
+
+        const a = document.createElement('a');
+        let distanceText = '';
+
+        if (sortType === 'distance' && currentCarLocation) {
+          const carPt = turf.point([currentCarLocation[1], currentCarLocation[0]]);
+          const lotPt = turf.point([lot.longitude, lot.latitude]);
+          const distanceKm = turf.distance(carPt, lotPt, { units: 'kilometers' });
+          const distanceM = Math.round(distanceKm * 1000);
+          if (distanceM >= 1000) {
+            distanceText = ` (${Math.round(distanceKm * 10)/10}km)`;
+          }else {
+            distanceText = ` (${distanceM}m)`;
+          }
+        }
+
+        a.innerHTML = lot.name + distanceText + "<br><br>" + lot.category + "주자장" + " (" + lot.fee_type + ")";
+        a.style.color = '#007bff';
+        a.style.textDecoration = 'none';
+        a.style.display = 'block';
+        a.style.width = '100%';
+        a.style.cursor = 'pointer';
+
+        a.addEventListener('click', e => {
+          e.preventDefault();
+          openParkingModal(lot);
+        });
+
+        li.appendChild(a);
+        ul.appendChild(li);
+      });
+
+    }
+
+    function lotsDistanceChange() {
+
+      const selectEl = document.getElementById('distanceSelect');
+      const distance = selectEl.value;
+
+      if (!isAuthenticated) {
+        alert('로그인이 필요한 서비스입니다.');
+        selectEl.selectedIndex = 0;
+        return;
+      }
+
+      nearByParkingLotsDistance = parseFloat(distance);
+
+      if (!currentCarLocation) {
+        return;
+      }
+      const [lat, lon] = currentCarLocation;
+      const isIllegal = isIllegalParkingArea(lat, lon);
+
+      if (!isIllegal) {
+        renderParkingList();
+        parkingMarkers.forEach(m => m.setMap(null));
+        parkingMarkers.length = 0;
+        return;
+      }
+
+      const center = turf.point([lon, lat]);
+      const nearby = parkingLots.filter(lot =>
+        turf.distance(center, turf.point([lot.longitude, lot.latitude]), { units: 'kilometers' }) <= nearByParkingLotsDistance
+      );
+
+      renderParkingList(nearby);
+      showNearbyParkingLots(lat, lon);
+    }
+
+    function handleFreeFilterChange() {
+      showFreeOnly = document.getElementById('freeOnlyCheckbox').checked;
+
+      if (currentCarLocation) {
+        lotsDistanceChange();
+      } else {
+        renderParkingList();
+      }
+    }
+
+
+    function openParkingModal(lot) {
+      const modal = document.getElementById('parkingModal');
+      const body = document.getElementById('parkingModalBody');
+
+      let availableCount = '정보 없음';
+      let pkLotCount = null;
+
+      if (Array.isArray(realtimeParkingLots)) {
+        const matched = realtimeParkingLots.find(real => real.pkplcId === lot.pkplcId);
+
+        if (matched) {
+          availableCount = matched.avblPklotCnt;
+          pkLotCount = matched.pklotCnt;
+        }
+      }
+
+      body.innerHTML = `
+        <h2>${lot.name}</h2>
+        <p><strong>주소 :</strong> ${lot.road_address || lot.jibun_address || '정보 없음'}</p>
+        <p><strong>전화번호 :</strong> ${lot.phone_number || '정보 없음'}</p>
+        <p><strong>총 주차 구획수 :</strong> ${pkLotCount || lot.capacity}</p>
+        <p><strong>현재 이용 가능 주차구획수 :</strong> ${availableCount}</p>
+        <p><strong>요금 : </strong>${lot.fee_type}</p>
+        <div style="margin-top:15px; text-align:right;">
+          <button onclick="goDetail(${JSON.stringify(lot.number)})"
+                  style="padding:6px 12px; background:#007bff; color:#fff;
+                         border:none; border-radius:4px; cursor:pointer;">
+            상세정보 보기
+          </button>
+        </div>
+      `;
+
+      modal.style.display = 'block';
+    }
+
+    function goDetail(number) {
+      if (number == null) {
+        alert('상세 페이지로 이동할 수 없습니다. (number 없음)');
+        return;
+      }
+      window.location.href = `/parking/${number}/`;
+    }
+
+    function closeParkingModal() {
+      document.getElementById('parkingModal').style.display = 'none';
+    }
+
+    function openModal(modalId) {
+      document.getElementById(modalId).style.display = 'block';
+    }
+
+    function closeModal(modalId) {
+  const modal = document.getElementById(modalId);
+  modal.style.display = 'none';
+
+  // 🔹 프로필 모달은 값 유지 (리셋하지 않음)
+  if (modalId !== 'profileModal') {
+    const inputs = modal.querySelectorAll('input');
+    inputs.forEach(input => {
+      input.value = '';
+    });
+
+    // 에러 메시지도 초기화
+    const errors = modal.querySelectorAll('.error');
+    errors.forEach(err => err.textContent = '');
+  }
+}
+
+
+    window.onclick = function(event) {
+      const loginModal = document.getElementById('loginModal');
+      const signupModal = document.getElementById('signupModal');
+      if (event.target === loginModal) loginModal.style.display = 'none';
+      if (event.target === signupModal) signupModal.style.display = 'none';
+    }
+
+    function placeRandomOnRoad() {
+      if (!isAuthenticated) { alert('로그인이 필요한 서비스입니다.'); return; }
+
+      if (!roadLines.length) { alert('도로 데이터가 아직 준비되지 않았습니다.'); return; }
+      if (carMarker) { carMarker.setMap(null); carMarker = null; }
+      if (infoWindow) { infoWindow.setMap(null); infoWindow = null; }
+      parkingMarkers.forEach(m => m.setMap(null)); parkingMarkers.length = 0;
+
+      const line = roadLines[Math.floor(Math.random() * roadLines.length)];
+      const dist = Math.random() * turf.length(line, { units: 'kilometers' });
+      const pt = turf.along(line, dist, { units: 'kilometers' });
+      const [lon, lat] = pt.geometry.coordinates;
+      carMarker = new kakao.maps.Marker({ map, position: new kakao.maps.LatLng(lat, lon) });
+      map.setCenter(new kakao.maps.LatLng(lat, lon));
+      currentCarLocation = [lat, lon];
+
+      const illegal = isIllegalParkingArea(lat, lon);
+      const msg = illegal ? "🚫 불법 주정차 구역입니다." : "✅ 불법 주정차 구역이 아닙니다.";
+      infoWindow = new kakao.maps.CustomOverlay({
+        content: `<div style="padding:12px;font-size:16px;font-weight:bold;min-width:220px;text-align:center;
+                  background:#fff; border:2px solid ${illegal?'#dc3545':'#28a745'};
+                  border-radius:8px;box-shadow:0 2px 6px rgba(0,0,0,0.2);
+                  color:${illegal?'#dc3545':'#28a745'}">${msg}</div>`,
+        position: new kakao.maps.LatLng(lat, lon),
+        yAnchor: 1.8, zIndex: 99
+      });
+      infoWindow.setMap(map);
+
+      if (illegal) {
+        recordIllegalParking(lat, lon);
+        showNearbyParkingLots(lat, lon);
+        const center = turf.point([lon, lat]);
+        const nearby = parkingLots.filter(lot =>
+          turf.distance(center, turf.point([lot.longitude, lot.latitude]), { units: 'kilometers' }) <= nearByParkingLotsDistance
+        );
+        renderParkingList(nearby);
+      } else {
+        renderParkingList();
+      }
+    }
+
+    function isIllegalParkingArea(lat, lon) {
+      const pt = turf.point([lon, lat]);
+      const nearCam = trafficCameras.some(c =>
+        turf.distance(pt, turf.point([c.longitude, c.latitude]), { units: 'kilometers' }) <= 0.1
+      );
+      const nearLot = parkingLots.some(l =>
+        turf.distance(pt, turf.point([l.longitude, l.latitude]), { units: 'kilometers' }) <= 0.05
+      );
+      return !(nearCam && nearLot) && nearCam;
+    }
+
+    function showNearbyParkingLots(lat, lon) {
+      parkingMarkers.forEach(m => m.setMap(null));
+      parkingMarkers.length = 0;
+      const center = turf.point([lon, lat]);
+
+      parkingLots.forEach(lot => {
+        const isInRange = turf.distance(center, turf.point([lot.longitude, lot.latitude]), { units: 'kilometers' }) <= nearByParkingLotsDistance;
+        const isFree = showFreeOnly ? lot.fee_type === '무료' : true;
+
+        if (isInRange && isFree) {
+          const defaultSize = new kakao.maps.Size(24, 35);
+          const enlargedSize = new kakao.maps.Size(32, 46);
+
+          const defaultImage = new kakao.maps.MarkerImage(
+            'https://t1.daumcdn.net/localimg/localimages/07/mapapidoc/markerStar.png',
+            defaultSize,
+            { offset: new kakao.maps.Point(12, 35) }
+          );
+
+          const enlargedImage = new kakao.maps.MarkerImage(
+            'https://t1.daumcdn.net/localimg/localimages/07/mapapidoc/markerStar.png',
+            enlargedSize,
+            { offset: new kakao.maps.Point(16, 46) }
+          );
+
+          const mk = new kakao.maps.Marker({
+            map,
+            position: new kakao.maps.LatLng(lot.latitude, lot.longitude),
+            image: defaultImage
+          });
+
+          let availableCount = '기능 미지원';
+          let pkLotCount = null;
+          if (Array.isArray(realtimeParkingLots)) {
+            const matched = realtimeParkingLots.find(real => real.pkplcId === lot.pkplcId);
+            if (matched) {
+              availableCount = matched.avblPklotCnt;
+              pkLotCount = matched.pklotCnt;
+            }
+          }
+
+          const content = `
+            <div class="customoverlay-box">
+              <div class="customoverlay-content">
+                <strong>${lot.name}</strong><br>
+                <span>주차구획수 : ${pkLotCount || lot.capacity}</span><br>
+                <span>남은주차공간 : ${availableCount}</span>
+              </div>
+            </div>
+          `;
+
+          const overlay = new kakao.maps.CustomOverlay({
+            content: content,
+            position: mk.getPosition(),
+            yAnchor: 1.5,
+            zIndex: 100
+          });
+
+          addMarkerWithOverlay(mk, overlay, defaultImage, enlargedImage);
+
+          parkingMarkers.push(mk);
+        }
+      });
+    }
+
+    function addMarkerWithOverlay(marker, overlay, defaultImage, enlargedImage) {
+      kakao.maps.event.addListener(marker, 'mouseover', () => {
+        marker.setImage(enlargedImage);
+        overlay.setMap(map);
+      });
+
+      kakao.maps.event.addListener(marker, 'mouseout', () => {
+        marker.setImage(defaultImage);
+        overlay.setMap(null);
+      });
+    }
+
+    function clearMarkers() {
+      if (!isAuthenticated) { alert('로그인이 필요한 서비스입니다.'); return; }
+
+      if (carMarker) { carMarker.setMap(null); carMarker = null; }
+      parkingMarkers.forEach(m => m.setMap(null)); parkingMarkers.length = 0;
+      renderParkingList();
+      if (infoWindow) { infoWindow.setMap(null); infoWindow = null; }
+    }
+
+    //-------- 회원 관리 --------
+    function setupAjaxForm(formId, callback){
+      const form = document.getElementById(formId);
+      if(!form) return;
+      form.addEventListener('submit', e=>{
+          e.preventDefault();
+          const formData = new FormData(form);
+          const csrftoken = form.querySelector('[name=csrfmiddlewaretoken]').value;
+          fetch(form.action, {
+              method:'POST', body:formData,
+              headers:{'X-Requested-With':'XMLHttpRequest','X-CSRFToken':csrftoken}
+          })
+          .then(res=>res.json())
+          .then(data=>callback(data))
+          .catch(err=>console.error(err));
+      });
+    }
+
+    // ---------------- 회원가입 ----------------
+    setupAjaxForm('signupForm', data=>{
+      document.querySelectorAll('.error').forEach(el=>el.textContent='');
+      if(data.success){
+          alert(data.message||'회원가입 완료!');
+          setTimeout(()=>{ closeModal('signupModal'); closeModal('loginModal'); location.reload(); },500);
+      } else {
+          for(let field in data.errors){
+              const el = document.getElementById(`error-${field}`);
+              if(el) el.textContent = data.errors[field].join(', ');
+          }
+      }
+    });
+
+    // ---------------- 아이디 찾기 ----------------
+    setupAjaxForm('findIdForm', data => {
+      const resultDiv = document.getElementById('findIdResult');
+      const form = document.getElementById('findIdForm');
+      resultDiv.innerHTML = '';
+
+      if(data.success){
+          resultDiv.innerHTML = `<div style="padding:12px;background:#e6f7ff;border:2px solid #1890ff;border-radius:8px;color:#004085;font-weight:bold;text-align:center;">당신의 아이디는 <b>${data.usernames}</b> 입니다.</div>`;
+      } else {
+          resultDiv.innerHTML = `<div style="padding:12px;background:#f8d7da;border:2px solid #f5c6cb;border-radius:8px;color:#721c24;font-weight:bold;text-align:center;">${data.message||'아이디를 찾을 수 없습니다.'}</div>`;
+      }
+
+      // 모달 닫기 이벤트 등록 (한 번만)
+      const modal = document.getElementById('findIdModal');
+      if(modal && !modal._resetListenerAdded){
+          const resetFn = () => {
+              resultDiv.innerHTML = '';
+              if(form) form.reset(); // 입력값 초기화
+          };
+          modal.addEventListener('click', e => { if(e.target === modal) resetFn(); });
+          modal.querySelectorAll('.close').forEach(btn => btn.addEventListener('click', resetFn));
+          modal._resetListenerAdded = true;
+      }
+    });
+
+    // ---------------- 비밀번호 변경 ----------------
+    setupAjaxForm('passwordForm', data => {
+      const msgUl = document.getElementById('passwordMessages');
+      const form = document.getElementById('passwordForm');
+
+      // 메시지 초기화
+      msgUl.innerHTML = '';
+
+      if (data.success) {
+          // 성공 메시지 표시
+          const li = document.createElement('li');
+          li.style.color = 'green';
+          li.textContent = data.messages[0] || '비밀번호가 변경되었습니다.';
+          msgUl.appendChild(li);
+      } else {
+          // 실패 메시지 표시
+          data.messages.forEach(msg => {
+              const li = document.createElement('li');
+              li.style.color = 'red';
+              li.textContent = msg;
+              msgUl.appendChild(li);
+          });
+      }
+
+      // 모달 닫기 이벤트 등록 (한 번만)
+      const modal = document.getElementById('changePasswordModal');
+      if (modal && !modal._resetListenerAdded) {
+        const resetFn = () => {
+            msgUl.innerHTML = '';
+            if (form) form.reset(); // 입력값 초기화
+            closeModal('changePasswordModal'); // 닫기
+        };
+
+        // 모달 외부 클릭 시
+        modal.addEventListener('click', e => {
+            if (e.target === modal) resetFn();
+        });
+
+        // 닫기 버튼 클릭 시
+        modal.querySelectorAll('.close').forEach(btn => btn.addEventListener('click', resetFn));
+
+        modal._resetListenerAdded = true; // 중복 등록 방지
+      }
+    });
+
+    // ---------------- 비밀번호 재설정 이메일 ----------------
+    setupAjaxForm('resetPasswordForm', data => {
+      const msgDiv = document.getElementById('reset-password-msg');
+      const form = document.getElementById('resetPasswordForm');
+
+      msgDiv.style.color = data.success ? 'green' : 'red';
+      msgDiv.textContent = data.message || '오류가 발생했습니다.';
+
+      // 모달 닫기 이벤트 등록 (한 번만)
+      const modal = document.getElementById('resetModal');
+      if(modal && !modal._resetListenerAdded){
+        const resetFn = () => {
+          msgDiv.textContent = '';
+          if(form) form.reset(); // 입력값 초기화
+        };
+        modal.addEventListener('click', e => { if(e.target === modal) resetFn(); });
+        modal.querySelectorAll('.close').forEach(btn => btn.addEventListener('click', resetFn));
+        modal._resetListenerAdded = true;
+      }
+    });
+
+
+    // ---------------- 회원정보 수정 ----------------
+    setupAjaxForm('profileForm', data => {
+      // 기존 에러 초기화
+      document.getElementById('profile-error-email').textContent = '';
+      document.getElementById('error-phone_number').textContent = '';
+
+      if(data.success){
+        closeModal('profileModal');
+        alert(data.message || '회원정보가 성공적으로 수정되었습니다.');
+      } else {
+        // 이메일 에러
+        if(data.message && data.message.includes('이메일')){
+          document.getElementById('profile-error-email').textContent = data.message;
+        }
+        // 핸드폰 에러
+        if(data.message && data.message.includes('핸드폰')){
+          document.getElementById('error-phone_number').textContent = data.message;
+        }
+      }
+    });
+
+    // ---------------- 회원 탈퇴 확인 ----------------
+
+    const deleteForm = document.getElementById('deleteForm');
+    if(deleteForm){
+      deleteForm.addEventListener('submit', e=>{
+          if(!confirm('정말 탈퇴하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) e.preventDefault();
+      });
+    }
+
+    // ---------------- 모달 닫기 이벤트 ----------------
+
+    window.addEventListener('click', event=>{
+      document.querySelectorAll('.modal').forEach(modal=>{
+        if(event.target===modal) modal.style.display='none';
+      });
+    });
+    document.querySelectorAll('.modal .close').forEach(btn=>{
+      btn.addEventListener('click', function(){
+        const modal = this.closest('.modal');
+        if(modal) modal.style.display='none';
+      });
+    });
+
+
+    // ---------------- Django 메시지 애니메이션 ----------------
+
+    window.addEventListener('DOMContentLoaded', ()=>{
+      const boxes = document.querySelectorAll('#django-messages .message-box');
+      boxes.forEach((box,idx)=>{
+        setTimeout(()=>{ box.style.opacity=1; box.style.transform='translateY(0)'; }, 100*idx);
+        setTimeout(()=>{ box.style.opacity=0; box.style.transform='translateY(-10px)'; setTimeout(()=>box.remove(),500); }, 3000+idx*100);
+      });
+    });
+  </script>
+</body>
+</html>
