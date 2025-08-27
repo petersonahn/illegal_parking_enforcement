@@ -62,7 +62,7 @@ function placeRandomOnRoad() {
               });
               fineOverlay.setMap(map);
     
-              // 5초 뒤 자동 닫기
+              // 10초 뒤 자동 닫기
               setTimeout(() => fineOverlay.setMap(null), 10000);
             });
           }
