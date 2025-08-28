@@ -1,0 +1,45 @@
+<script>
+  let realtimeParkingLots = []; // 실시간 주차 데이터 저장소
+
+  // API에서 실시간 주차 데이터 불러오기
+  async function loadRealtimeParkingData() {
+    try {
+      const res = await fetch('/api/realtime_parking/');
+      const data = await res.json();
+      realtimeParkingLots = data; // 가져온 데이터 저장
+      updateAvailableCounts();    // 화면 갱신
+    } catch (e) {
+      realtimeParkingLots = []; // 실패 시 빈 배열
+      console.error('실시간 주차 데이터 로딩 실패', e);
+    }
+  }
+
+  // DOM 내 주차 가능/전체 구획수 갱신
+  function updateAvailableCounts() {
+    document.querySelectorAll('.stat').forEach(statEl => {
+      const pkplcId = statEl.dataset.pkplcid; // 주차장 ID
+      const matched = realtimeParkingLots.find(item => item.pkplcId == pkplcId); // 일치 데이터 찾기
+
+      const availableEl = statEl.querySelector('.available-count'); // 가능 대수
+      const totalEl = statEl.querySelector('.total-count');         // 총 구획수
+      const labelEl = statEl.querySelector('.k');                   // 설명 라벨
+
+      if (!availableEl || !totalEl || !labelEl) return; // 요소 없으면 패스
+
+      if (matched && matched.avblPklotCnt != null && matched.pklotCnt != null) {
+        // 실시간 데이터 있으면
+        availableEl.style.display = "inline";
+        availableEl.textContent = matched.avblPklotCnt + " / ";
+        totalEl.textContent = matched.pklotCnt;
+        labelEl.textContent = "주차 가능 / 주차 구획수";
+      } else {
+        // 실시간 데이터 없으면
+        availableEl.style.display = "none";
+        totalEl.textContent = statEl.dataset.capacity || "-";
+        labelEl.textContent = "주차 구획수";
+      }
+    });
+  }
+
+  loadRealtimeParkingData(); // 초기 실행
+</script>
