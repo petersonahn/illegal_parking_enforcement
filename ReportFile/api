@@ -1,0 +1,22 @@
+데이터
+
+주차장 데이터 (공공데이터)
+https://www.data.go.kr/data/15012896/standard.do
+(전국 -> 고양시)
+
+도로
+overpass api
+=> 차량 랜덤 위치 생성(주차)
+
+지도
+kakao_map api
+
+교통단속카메라 데이터 (공공데이터)
+https://www.data.go.kr/data/15028200/standard.do
+(전국 -> 고양시, 주정차 단속[단속 구분 4])
+=> 불법 주정차 여부 판단.
+
+기본 위치 - 고양시청
+
+geojson(고양시 행정구역(법정동)구분 [읍면동])
+V-WORLD(국토교통부) 법정구역정보 SHP데이터 -> geojson 데이터로 변환
