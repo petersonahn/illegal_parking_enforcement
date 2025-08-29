@@ -1,0 +1,33 @@
+// 선택한 주차장 위치로 지도 이동
+    function moveToLot(lat, lon) {
+      // 지도 중심 이동
+      const position = new kakao.maps.LatLng(lat, lon);
+      map.setCenter(position);
+
+      if (currentCarLocation && isIllegalParkingArea(currentCarLocation[0], currentCarLocation[1])) {
+        closeParkingModal();
+        return;
+      }
+
+      // 기존 주차장 마커 제거
+      parkingMarkers.forEach(m => m.setMap(null));
+      parkingMarkers.length = 0;
+
+      const markerImage = new kakao.maps.MarkerImage(
+        'https://t1.daumcdn.net/localimg/localimages/07/mapapidoc/markerStar.png',
+        new kakao.maps.Size(24, 35),
+        { offset: new kakao.maps.Point(12, 35) }
+      );
+
+      // 새 마커 생성
+      const marker = new kakao.maps.Marker({
+        map,
+        position,
+        image: markerImage
+      });
+
+      parkingMarkers.push(marker);
+
+      // 모달 닫기
+      closeParkingModal();
+    }
